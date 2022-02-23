@@ -14,6 +14,11 @@ sum(is.na(df))
 
 # handling NA using interpolation 
 df.imputed <- na_interpolation(df)
+kalman <-  na_kalman(df$JKSE.Adjusted)
+seadec <- na_seadec(ts(df$JKSE.Adjusted,frequency=30))
+
+# plot to check whether interpolating the data changes its trend
+ggplot_na_imputations(df$JKSE.Adjusted, df.imputed$JKSE.Adjusted)
 
 # making sure that our data has no more missing value
 sum(is.na(df.imputed))
@@ -93,7 +98,6 @@ ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.5)
 ses.2 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.9)
 ses.opt <- HoltWinters(train.ts, gamma = F, beta = F) 
 
-
 RMSE.ses1 <- sqrt(ses.1$SSE/length(train.ts))
 RMSE.ses2 <- sqrt(ses.2$SSE/length(train.ts))
 RMSE.sesopt <- sqrt(ses.opt$SSE/length(train.ts))
@@ -106,7 +110,7 @@ test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
 test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
 test.RMSE.SESopt <- sqrt(mean((fc.sesopt-test.ts)^2))
 
-plot(train.ts,main="SES with Optimal parameter",type="l",col="black",pch=12,
+plot(train.ts,main="SES with Optimal parameter alpha=0.9999374",type="l",col="black",pch=12,
      ylab="IHSG Adjusted Closing Price",
      xlim=c(0,8000),ylim=c(200,7000))
 lines(ses.opt$fitted[,2],type="l",col="red")
@@ -138,8 +142,6 @@ des.1 <- HoltWinters(train.ts,alpha = 1, beta=0.024, gamma=F)
 des.2 <- HoltWinters(train.ts,alpha = 0.86, beta=0.01, gamma=F)
 des.opt <- HoltWinters(train.ts, gamma = F)
 
-des.opt
-
 RMSE.des1 <- sqrt(des.1$SSE/length(train.ts))
 RMSE.des2 <- sqrt(des.2$SSE/length(train.ts))
 RMSE.desopt <- sqrt(des.opt$SSE/length(train.ts))
@@ -152,7 +154,7 @@ test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
 test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
 test.RMSE.DESopt <- sqrt(mean((fc.desopt-test.ts)^2))
 
-plot(train.ts,main="DES with Optimal parameter",
+plot(train.ts,main="DES with Optimal parameter alpha=1 beta=0.004223736",
      type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
      xlim=c(0,8000),ylim=c(200,7000))
 lines(des.opt$fitted[,2],type="l",col="red")
@@ -182,7 +184,7 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
 # holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=1616)
-RMSE.HWA <- sqrt(HW.1$SSE/length(seasonal.train))
+RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
 test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
 predictHWA <- predict(HWA, n.ahead=1616)
 
@@ -215,9 +217,9 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
 err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                            "DES 1", "DES 2", "DES opt",
                            "HW Additive", "HW Multiplicative"),
-                  RMSE=c(RMSE.sma, RMSE.dma, RMSE1.ses, RMSE2.ses, RMSEopt.ses,
-                         RMSE1.des, RMSE2.des, RMSEopt.des, RMSE.HWA, RMSE.HWM))
-err
+                  RMSE=c(RMSE.sma, RMSE.dma, RMSE.ses1, RMSE.ses2, RMSE.sesopt,
+                         RMSE.des1, RMSE.des2, RMSE.desopt, RMSE.HWA, RMSE.HWM))
+View(err)
 
 # comparing RMSE of the test dataset
 test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
@@ -227,7 +229,7 @@ test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                               test.RMSE.SES1, test.RMSE.SES2, test.RMSE.SESopt, 
                               test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt,
                               test.RMSE.HWA, test.RMSE.HWM))
-test.err
+View(test.err)
 
 # comparing MAPE
 MAPE.sma <- mean(abs((test.ts-tail(data.gab$forecast, 1616))/test.ts))*100
@@ -252,4 +254,4 @@ MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                               MAPE.ses1, MAPE.ses2, MAPE.sesopt, 
                               MAPE.des1, MAPE.des2, MAPE.desopt,
                               MAPE.HWA, MAPE.HWM))
-MAPE
+View(MAPE)
