@@ -45,8 +45,14 @@ data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,1616)),smoothing=c(data.sma,
 
 error.sma = train.ts-data.fc[1:length(train.ts)]
 RMSE.sma = sqrt(mean(error.sma[1617:length(train.ts)]^2))
-
 test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, 1616)-test.ts)^2))
+
+ts.plot(data.gab[,1], xlab="Time Period ", ylab="JKSE Adjusted Closing Price",
+        main= "Time series plot of JKSE Adjusted Closing Price")
+lines(data.gab[,2],col="green",lwd=2)
+lines(data.gab[,3],col="red",lwd=2)
+legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
+       col=c("black","green","red"), cex=0.8)
 
 # double moving average
 dma <- SMA(data.sma, n = 30)
@@ -71,8 +77,14 @@ data.gab2 <- data.frame(cbind(aktual = c(train.ts,rep(NA,1617)),
 
 error.dma = train.ts-data.fc2[1:length(train.ts)]
 RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
-
 test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, 1616)-test.ts)^2))
+
+ts.plot(data.gab2[,1], xlab="Time Period ", ylab="JKSE Adjusted Closing Price",
+        main= "Time series plot of JKSE Adjusted Closing Price")
+lines(data.gab2[,3],col="green",lwd=2)
+lines(data.gab2[,6],col="red",lwd=2)
+legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
+       col=c("black","green","red"), cex=0.8)
 
 # single exponential smoothing
 ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.2)
@@ -91,6 +103,13 @@ test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
 test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
 test.RMSE.SESopt <- sqrt(mean((fc.sesopt-test.ts)^2))
 
+plot(train.ts,main="SES with Optimal parameter",type="l",col="black",pch=12)
+lines(ses.opt$fitted[,2],type="l",col="red")
+lines(fc.sesopt,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1)
+
 # double exponential smoothing
 des.1 <- HoltWinters(train.ts,alpha = 0.2, beta=0.3, gamma=F)
 des.2 <- HoltWinters(train.ts,alpha = 0.7, beta=0.004, gamma=F)
@@ -108,17 +127,43 @@ test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
 test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
 test.RMSE.DESopt <- sqrt(mean((fc.desopt-test.ts)^2))
 
+plot(train.ts,main="DES with Optimal parameter",type="l",col="black",pch=12)
+lines(des.opt$fitted[,2],type="l",col="red")
+lines(fc.desopt,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1)
+
+
 # holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=1616)
 RMSE.HWA <- sqrt(HW.1$SSE/length(seasonal.train))
 test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
+predictHWA <- predict(HWA, n.ahead=1616)
+
+plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12)
+lines(HWA$fitted[,2],type="l",col="red")
+lines(predictHWA,type="l",col="blue")
+lines(seasonal.test,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1)
 
 # holtwinter multiplicative
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
 fc.HWM <- forecast(HWM, h=1616)
 RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
 test.RMSE.HWM <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
+predictHWM <- predict(HWM, n.ahead=1616)
+
+
+plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12)
+lines(HWM$fitted[,2],type="l",col="red")
+lines(predictHWM,type="l",col="blue")
+lines(seasonal.test,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1)
+
 
 # comparing RMSE of the train dataset
 err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
