@@ -21,11 +21,11 @@ sum(is.na(df.imputed))
 # transform into time series data. 
 # seasonal will be used for holtwinter additive/multiplicative model
 data.ts <- ts(df.imputed$JKSE.Adjusted)
-seasonal <- ts(df.imputed$JKSE.Adjusted, frequency=12)
+seasonal <- ts(df.imputed$JKSE.Adjusted, frequency=30)
 
-# look at the time series plot of JKSE closing price
-ts.plot(data.ts, xlab="Time Period", ylab="JKSE Adjusted Closing Price", 
-        main="JKSE Adjusted Closing Price Overtime")
+# look at the time series plot of IHSG closing price
+ts.plot(data.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price", 
+        main="IHSG Adjusted Closing Price Overtime")
 
 # we wanna split the data into 80% training and 20% testing
 # let's calculate the number of instances
@@ -47,8 +47,8 @@ error.sma = train.ts-data.fc[1:length(train.ts)]
 RMSE.sma = sqrt(mean(error.sma[1617:length(train.ts)]^2))
 test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, 1616)-test.ts)^2))
 
-ts.plot(data.gab[,1], xlab="Time Period ", ylab="JKSE Adjusted Closing Price",
-        main= "Time series plot of JKSE Adjusted Closing Price")
+ts.plot(data.gab[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
+        main= "Time series plot of IHSG Adjusted Closing Price")
 lines(data.gab[,2],col="green",lwd=2)
 lines(data.gab[,3],col="red",lwd=2)
 legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
@@ -79,17 +79,18 @@ error.dma = train.ts-data.fc2[1:length(train.ts)]
 RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
 test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, 1616)-test.ts)^2))
 
-ts.plot(data.gab2[,1], xlab="Time Period ", ylab="JKSE Adjusted Closing Price",
-        main= "Time series plot of JKSE Adjusted Closing Price")
+ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
+        main= "Time series plot of IHSG Adjusted Closing Price")
 lines(data.gab2[,3],col="green",lwd=2)
 lines(data.gab2[,6],col="red",lwd=2)
 legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
        col=c("black","green","red"), cex=0.8)
 
 # single exponential smoothing
-ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.2)
-ses.2 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.7)
+ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.5)
+ses.2 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.9)
 ses.opt <- HoltWinters(train.ts, gamma = F, beta = F) 
+
 
 RMSE.ses1 <- sqrt(ses.1$SSE/length(train.ts))
 RMSE.ses2 <- sqrt(ses.2$SSE/length(train.ts))
@@ -111,9 +112,11 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1)
 
 # double exponential smoothing
-des.1 <- HoltWinters(train.ts,alpha = 0.2, beta=0.3, gamma=F)
-des.2 <- HoltWinters(train.ts,alpha = 0.7, beta=0.004, gamma=F)
+des.1 <- HoltWinters(train.ts,alpha = 1, beta=0.024, gamma=F)
+des.2 <- HoltWinters(train.ts,alpha = 0.86, beta=0.01, gamma=F)
 des.opt <- HoltWinters(train.ts, gamma = F)
+
+des.opt
 
 RMSE.des1 <- sqrt(des.1$SSE/length(train.ts))
 RMSE.des2 <- sqrt(des.2$SSE/length(train.ts))
@@ -134,7 +137,6 @@ lines(test.ts,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1)
 
-
 # holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=1616)
@@ -153,9 +155,8 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
 fc.HWM <- forecast(HWM, h=1616)
 RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
-test.RMSE.HWM <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
+test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:1616]-test.ts)^2))
 predictHWM <- predict(HWM, n.ahead=1616)
-
 
 plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12)
 lines(HWM$fitted[,2],type="l",col="red")
@@ -164,23 +165,45 @@ lines(seasonal.test,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1)
 
-
 # comparing RMSE of the train dataset
 err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                           "DES 1", "DES 2", "DES opt"),
+                           "DES 1", "DES 2", "DES opt",
+                           "HW Additive", "HW Multiplicative"),
                   RMSE=c(RMSE.sma, RMSE.dma, RMSE1.ses, RMSE2.ses, RMSEopt.ses,
-                         RMSE1.des, RMSE2.des, RMSEopt.des))
+                         RMSE1.des, RMSE2.des, RMSEopt.des, RMSE.HWA, RMSE.HWM))
 err
 
 # comparing RMSE of the test dataset
 test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                                "DES 1", "DES 2", "DES opt"),
+                                "DES 1", "DES 2", "DES opt",
+                                "HW Additive","HW Multiplicative"),
                        RMSE=c(test.RMSE.SMA, test.RMSE.DMA, 
                               test.RMSE.SES1, test.RMSE.SES2, test.RMSE.SESopt, 
-                              test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt))
+                              test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt,
+                              test.RMSE.HWA, test.RMSE.HWM))
 test.err
 
-# comparing MAPE of the train dataset
+# comparing MAPE
+MAPE.sma <- mean(abs((test.ts-tail(data.gab$forecast, 1616))/test.ts))*100
+MAPE.dma <- mean(abs((test.ts-tail(data.gab2$forecast, 1616))/test.ts))*100
+
+MAPE.ses1 <- mean(abs((fc.ses1 - test.ts)/test.ts)) * 100
+MAPE.ses2 <- mean(abs((fc.ses2 - test.ts)/test.ts)) * 100
+MAPE.sesopt <- mean(abs((fc.sesopt - test.ts)/test.ts)) * 100
+
+MAPE.des1 <- mean(abs((fc.des1 - test.ts)/test.ts)) * 100
+MAPE.des2 <- mean(abs((fc.des2 - test.ts)/test.ts)) * 100
+MAPE.desopt <- mean(abs((fc.desopt - test.ts)/test.ts)) * 100
+
+MAPE.HWA <- mean(abs((fc.HWA$mean - seasonal.test)/seasonal.test)) * 100
+MAPE.HWM <- mean(abs((fc.HWM$mean - seasonal.test)/seasonal.test)) * 100
 
 
-# comparing MAPE of the test dataset
+MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
+                                "DES 1", "DES 2", "DES opt",
+                                "HW Additive","HW Multiplicative"),
+                       MAPE=c(MAPE.sma, MAPE.dma, 
+                              MAPE.ses1, MAPE.ses2, MAPE.sesopt, 
+                              MAPE.des1, MAPE.des2, MAPE.desopt,
+                              MAPE.HWA, MAPE.HWM))
+MAPE
