@@ -38,7 +38,7 @@ seasonal.train <- head(seasonal, 6460)
 seasonal.test <- tail(seasonal, 1616)
 
 # single moving average
-data.sma<-SMA(train.ts, n=20)
+data.sma<-SMA(train.ts, n=30)
 data.fc<-c(NA,data.sma)
 data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,1616)),smoothing=c(data.sma,rep(NA,1616)),
                 forecast=c(data.fc,rep(data.fc[length(data.fc)],1615))))
@@ -48,10 +48,11 @@ RMSE.sma = sqrt(mean(error.sma[1617:length(train.ts)]^2))
 test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, 1616)-test.ts)^2))
 
 ts.plot(data.gab[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "Time series plot of IHSG Adjusted Closing Price")
+        main= "SMA of IHSG Adjusted Closing Price, m=30",ylim=c(200,7000))
 lines(data.gab[,2],col="green",lwd=2)
 lines(data.gab[,3],col="red",lwd=2)
-legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
+lines(test.ts)
+legend("topleft",c("Actual","Smoothed","Forecast"), lty=1, 
        col=c("black","green","red"), cex=0.8)
 
 # double moving average
@@ -80,10 +81,11 @@ RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
 test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, 1616)-test.ts)^2))
 
 ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "Time series plot of IHSG Adjusted Closing Price")
+        main= "DMA of IHSG Adjusted Closing Price m=30",ylim=c(200,7000))
 lines(data.gab2[,3],col="green",lwd=2)
 lines(data.gab2[,6],col="red",lwd=2)
-legend("topleft",c("Actual","Smoothed","Forecast"), lty=8, 
+lines(test.ts)
+legend("topleft",c("Actual","Smoothed","Forecast"), lty=1, 
        col=c("black","green","red"), cex=0.8)
 
 # single exponential smoothing
@@ -104,12 +106,32 @@ test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
 test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
 test.RMSE.SESopt <- sqrt(mean((fc.sesopt-test.ts)^2))
 
-plot(train.ts,main="SES with Optimal parameter",type="l",col="black",pch=12)
+plot(train.ts,main="SES with Optimal parameter",type="l",col="black",pch=12,
+     ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
 lines(ses.opt$fitted[,2],type="l",col="red")
 lines(fc.sesopt,type="l",col="blue")
 lines(test.ts,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1)
+       col=c("black","red","blue"),lty=1, cex=0.8)
+
+plot(train.ts,main="SES with alpha=0.5",type="l",col="black",pch=12,
+     ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
+lines(ses.1$fitted[,2],type="l",col="red")
+lines(fc.ses1,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1, cex=0.8)
+
+plot(train.ts,main="SES with alpha=0.9",type="l",col="black",pch=12,
+     ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
+lines(ses.2$fitted[,2],type="l",col="red")
+lines(fc.ses2,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1, cex=0.8)
 
 # double exponential smoothing
 des.1 <- HoltWinters(train.ts,alpha = 1, beta=0.024, gamma=F)
@@ -130,12 +152,32 @@ test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
 test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
 test.RMSE.DESopt <- sqrt(mean((fc.desopt-test.ts)^2))
 
-plot(train.ts,main="DES with Optimal parameter",type="l",col="black",pch=12)
+plot(train.ts,main="DES with Optimal parameter",
+     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
 lines(des.opt$fitted[,2],type="l",col="red")
 lines(fc.desopt,type="l",col="blue")
 lines(test.ts,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1)
+       col=c("black","red","blue"),lty=1, cex=0.8)
+
+plot(train.ts,main="DES with alpha=1 beta=0.024",
+     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
+lines(des.1$fitted[,2],type="l",col="red")
+lines(fc.des1,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1, cex=0.8)
+
+plot(train.ts,main="DES with alpha=0.86 beta=0.01",
+     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
+     xlim=c(0,8000),ylim=c(200,7000))
+lines(des.2$fitted[,2],type="l",col="red")
+lines(fc.des2,type="l",col="blue")
+lines(test.ts,type="l")
+legend("topleft",c("Actual Data","Fitted Data","Forecast"),
+       col=c("black","red","blue"),lty=1, cex=0.8)
 
 # holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
@@ -144,12 +186,14 @@ RMSE.HWA <- sqrt(HW.1$SSE/length(seasonal.train))
 test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
 predictHWA <- predict(HWA, n.ahead=1616)
 
-plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12)
+plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12,
+     ylim=c(200,7000),xlim=c(0,270), 
+     ylab="IHSG Adjusted Closing Price (per seasonal)")
 lines(HWA$fitted[,2],type="l",col="red")
 lines(predictHWA,type="l",col="blue")
 lines(seasonal.test,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1)
+       col=c("black","red","blue"),lty=1, cex=0.8)
 
 # holtwinter multiplicative
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
@@ -158,12 +202,14 @@ RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
 test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:1616]-test.ts)^2))
 predictHWM <- predict(HWM, n.ahead=1616)
 
-plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12)
+plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12,
+     ylim=c(200,7000),xlim=c(0,270), 
+     ylab="IHSG Adjusted Closing Price (per seasonal)")
 lines(HWM$fitted[,2],type="l",col="red")
 lines(predictHWM,type="l",col="blue")
 lines(seasonal.test,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1)
+       col=c("black","red","blue"),lty=1,cex=0.8)
 
 # comparing RMSE of the train dataset
 err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
