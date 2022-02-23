@@ -20,12 +20,12 @@ sum(is.na(df.imputed))
 
 # transform into time series data. 
 # seasonal will be used for holtwinter additive/multiplicative model
-data.ts <- ts(df.imputed$JKSE.Close)
-seasonal <- ts(df.imputed$JKSE.Close, frequency=12)
+data.ts <- ts(df.imputed$JKSE.Adjusted)
+seasonal <- ts(df.imputed$JKSE.Adjusted, frequency=12)
 
 # look at the time series plot of JKSE closing price
-ts.plot(data.ts, xlab="Time Period", ylab="JKSE Closing Price", 
-        main="JKSE Closing Price Overtime")
+ts.plot(data.ts, xlab="Time Period", ylab="JKSE Adjusted Closing Price", 
+        main="JKSE Adjusted Closing Price Overtime")
 
 # we wanna split the data into 80% training and 20% testing
 # let's calculate the number of instances
@@ -40,62 +40,102 @@ seasonal.test <- tail(seasonal, 1616)
 # single moving average
 data.sma<-SMA(train.ts, n=20)
 data.fc<-c(NA,data.sma)
-data.gab<-cbind(actual=c(train.ts,rep(NA,20)),smoothing=c(data.sma,rep(NA,20)),
-                forecast=c(data.fc,rep(data.fc[length(data.fc)],19)))
+data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,1616)),smoothing=c(data.sma,rep(NA,1616)),
+                forecast=c(data.fc,rep(data.fc[length(data.fc)],1615))))
 
 error.sma = train.ts-data.fc[1:length(train.ts)]
-RMSE.sma = sqrt(mean(error.sma[21:length(train.ts)]^2))
+RMSE.sma = sqrt(mean(error.sma[1617:length(train.ts)]^2))
+
+test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, 1616)-test.ts)^2))
 
 # double moving average
-dma <- SMA(data.sma, n = 20)
+dma <- SMA(data.sma, n = 30)
 At <- 2*data.sma - dma
-Bt <- 2/(20-1)*(data.sma - dma)
+Bt <- 2/(30-1)*(data.sma - dma)
 data.dma<- At+Bt
 data.fc2<- c(NA, data.dma)
 
-t = 1:21
+t = 1:1617
 f = c()
 
 for (i in t) {
   f[i] = At[length(At)] + Bt[length(Bt)]*(i)
 }
 
-data.gab2 <- cbind(aktual = c(train.ts,rep(NA,21)), 
-                   pemulusan1 = c(data.sma,rep(NA,21)),
-                   pemulusan2 = c(data.dma, rep(NA,21)),
-                   At = c(At, rep(NA,21)), 
-                   Bt = c(Bt,rep(NA,21)),
-                   ramalan = c(data.fc2, f[-1]))
+data.gab2 <- data.frame(cbind(aktual = c(train.ts,rep(NA,1617)), 
+                   pemulusan1 = c(data.sma,rep(NA,1617)),
+                   pemulusan2 = c(data.dma, rep(NA,1617)),
+                   At = c(At, rep(NA,1617)), 
+                   Bt = c(Bt,rep(NA,1617)),
+                   forecast = c(data.fc2, f[-1])))
 
 error.dma = train.ts-data.fc2[1:length(train.ts)]
-RMSE.dma = sqrt(mean(error.dma[40:length(train.ts)]^2))
+RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
+
+test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, 1616)-test.ts)^2))
 
 # single exponential smoothing
 ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.2)
 ses.2 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.7)
 ses.opt <- HoltWinters(train.ts, gamma = F, beta = F) 
 
-RMSE1.ses <- sqrt(ses.1$SSE/length(train.ts))
-RMSE2.ses <- sqrt(ses.2$SSE/length(train.ts))
-RMSEopt.ses <- sqrt(ses.opt$SSE/length(train.ts))
+RMSE.ses1 <- sqrt(ses.1$SSE/length(train.ts))
+RMSE.ses2 <- sqrt(ses.2$SSE/length(train.ts))
+RMSE.sesopt <- sqrt(ses.opt$SSE/length(train.ts))
 
-#double exponential smoothing
+fc.ses1 <- predict(ses.1, n.ahead = 1616)
+fc.ses2 <- predict(ses.2, n.ahead = 1616)
+fc.sesopt <- predict(ses.opt, n.ahead = 1616)
+
+test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
+test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
+test.RMSE.SESopt <- sqrt(mean((fc.sesopt-test.ts)^2))
+
+# double exponential smoothing
 des.1 <- HoltWinters(train.ts,alpha = 0.2, beta=0.3, gamma=F)
 des.2 <- HoltWinters(train.ts,alpha = 0.7, beta=0.004, gamma=F)
 des.opt <- HoltWinters(train.ts, gamma = F)
 
-RMSE1.des <- sqrt(des.1$SSE/length(train.ts))
-RMSE2.des <- sqrt(des.2$SSE/length(train.ts))
-RMSEopt.des <- sqrt(des.opt$SSE/length(train.ts))
+RMSE.des1 <- sqrt(des.1$SSE/length(train.ts))
+RMSE.des2 <- sqrt(des.2$SSE/length(train.ts))
+RMSE.desopt <- sqrt(des.opt$SSE/length(train.ts))
 
-#holtwinter additive
+fc.des1 <- predict(des.1, n.ahead = 1616)
+fc.des2 <- predict(des.2, n.ahead = 1616)
+fc.desopt <- predict(des.opt, n.ahead = 1616)
 
+test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
+test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
+test.RMSE.DESopt <- sqrt(mean((fc.desopt-test.ts)^2))
+
+# holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=1616)
 RMSE.HWA <- sqrt(HW.1$SSE/length(seasonal.train))
+test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
 
-#holtwinter multiplicative
-
+# holtwinter multiplicative
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
 fc.HWM <- forecast(HWM, h=1616)
 RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
+test.RMSE.HWM <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
+
+# comparing RMSE of the train dataset
+err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
+                           "DES 1", "DES 2", "DES opt"),
+                  RMSE=c(RMSE.sma, RMSE.dma, RMSE1.ses, RMSE2.ses, RMSEopt.ses,
+                         RMSE1.des, RMSE2.des, RMSEopt.des))
+err
+
+# comparing RMSE of the test dataset
+test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
+                                "DES 1", "DES 2", "DES opt"),
+                       RMSE=c(test.RMSE.SMA, test.RMSE.DMA, 
+                              test.RMSE.SES1, test.RMSE.SES2, test.RMSE.SESopt, 
+                              test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt))
+test.err
+
+# comparing MAPE of the train dataset
+
+
+# comparing MAPE of the test dataset
