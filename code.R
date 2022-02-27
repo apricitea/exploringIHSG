@@ -32,25 +32,36 @@ seasonal <- ts(df.imputed$JKSE.Adjusted, frequency=30)
 ts.plot(data.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price", 
         main="IHSG Adjusted Closing Price Overtime")
 
+#compare proportion
+#0.9 train 0.1 test
+#0.8 train 0.2 test
+#0.7 train 0.3 test
+
 # we wanna split the data into 80% training and 20% testing
 # let's calculate the number of instances
+floor(nrow(df.imputed)*0.9)
 floor(nrow(df.imputed)*0.8)
+floor(nrow(df.imputed)*0.7)
+
+
+trainprop <- floor(nrow(df.imputed)*0.9)
+testprop <- nrow(df.imputed)-trainprop
 
 # splitting the data
-train.ts <- head(data.ts, 6460)
-test.ts <- tail(data.ts, 1616)
-seasonal.train <- head(seasonal, 6460)
-seasonal.test <- tail(seasonal, 1616)
+train.ts <- head(data.ts, trainprop)
+test.ts <- tail(data.ts, testprop)
+seasonal.train <- head(seasonal, trainprop)
+seasonal.test <- tail(seasonal, testprop)
 
 # single moving average
-data.sma<-SMA(train.ts, n=30)
+data.sma<-SMA(train.ts, n=21)
 data.fc<-c(NA,data.sma)
-data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,1616)),smoothing=c(data.sma,rep(NA,1616)),
-                forecast=c(data.fc,rep(data.fc[length(data.fc)],1615))))
+data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,testprop)),smoothing=c(data.sma,rep(NA,testprop)),
+                forecast=c(data.fc,rep(data.fc[length(data.fc)],testprop-1))))
 
 error.sma = train.ts-data.fc[1:length(train.ts)]
-RMSE.sma = sqrt(mean(error.sma[1617:length(train.ts)]^2))
-test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, 1616)-test.ts)^2))
+RMSE.sma = sqrt(mean(error.sma[testprop+1:length(test.ts)]^2))
+test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, testprop)-test.ts)^2))
 
 ts.plot(data.gab[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
         main= "SMA of IHSG Adjusted Closing Price, m=30",ylim=c(200,7000))
@@ -61,29 +72,29 @@ legend("topleft",c("Actual","Smoothed","Forecast"), lty=1,
        col=c("black","green","red"), cex=0.8)
 
 # double moving average
-dma <- SMA(data.sma, n = 30)
+dma <- SMA(data.sma, n = 21)
 At <- 2*data.sma - dma
-Bt <- 2/(30-1)*(data.sma - dma)
+Bt <- 2/(21-1)*(data.sma - dma)
 data.dma<- At+Bt
 data.fc2<- c(NA, data.dma)
 
-t = 1:1617
+t = 1:testprop+1
 f = c()
 
 for (i in t) {
   f[i] = At[length(At)] + Bt[length(Bt)]*(i)
 }
 
-data.gab2 <- data.frame(cbind(aktual = c(train.ts,rep(NA,1617)), 
-                   pemulusan1 = c(data.sma,rep(NA,1617)),
-                   pemulusan2 = c(data.dma, rep(NA,1617)),
-                   At = c(At, rep(NA,1617)), 
-                   Bt = c(Bt,rep(NA,1617)),
+data.gab2 <- data.frame(cbind(aktual = c(train.ts,rep(NA,testprop+1)), 
+                   pemulusan1 = c(data.sma,rep(NA,testprop+1)),
+                   pemulusan2 = c(data.dma, rep(NA,testprop+1)),
+                   At = c(At, rep(NA,testprop+1)), 
+                   Bt = c(Bt,rep(NA,testprop+1)),
                    forecast = c(data.fc2, f[-1])))
 
 error.dma = train.ts-data.fc2[1:length(train.ts)]
 RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
-test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, 1616)-test.ts)^2))
+test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, testprop)-test.ts)^2))
 
 ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
         main= "DMA of IHSG Adjusted Closing Price m=30",ylim=c(200,7000))
@@ -102,9 +113,9 @@ RMSE.ses1 <- sqrt(ses.1$SSE/length(train.ts))
 RMSE.ses2 <- sqrt(ses.2$SSE/length(train.ts))
 RMSE.sesopt <- sqrt(ses.opt$SSE/length(train.ts))
 
-fc.ses1 <- predict(ses.1, n.ahead = 1616)
-fc.ses2 <- predict(ses.2, n.ahead = 1616)
-fc.sesopt <- predict(ses.opt, n.ahead = 1616)
+fc.ses1 <- predict(ses.1, n.ahead = testprop)
+fc.ses2 <- predict(ses.2, n.ahead = testprop)
+fc.sesopt <- predict(ses.opt, n.ahead = testprop)
 
 test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
 test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
@@ -138,17 +149,20 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.8)
 
 # double exponential smoothing
-des.1 <- HoltWinters(train.ts,alpha = 1, beta=0.024, gamma=F)
-des.2 <- HoltWinters(train.ts,alpha = 0.86, beta=0.01, gamma=F)
-des.opt <- HoltWinters(train.ts, gamma = F)
+des.1 <- HoltWinters(train.ts, alpha = 1, beta=0.024, gamma=F)
+des.2 <- HoltWinters(train.ts, alpha = 0.86, beta=0.01, gamma=F)
+des.opt <- HoltWinters(train.ts, gamma=F)
+
+#check the parameters of optimum des
+des.opt #a=1, b=0.002951429 for 90% train data
 
 RMSE.des1 <- sqrt(des.1$SSE/length(train.ts))
 RMSE.des2 <- sqrt(des.2$SSE/length(train.ts))
 RMSE.desopt <- sqrt(des.opt$SSE/length(train.ts))
 
-fc.des1 <- predict(des.1, n.ahead = 1616)
-fc.des2 <- predict(des.2, n.ahead = 1616)
-fc.desopt <- predict(des.opt, n.ahead = 1616)
+fc.des1 <- predict(des.1, n.ahead = testprop)
+fc.des2 <- predict(des.2, n.ahead = testprop)
+fc.desopt <- predict(des.opt, n.ahead = testprop)
 
 test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
 test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
@@ -183,10 +197,10 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
 
 # holtwinter additive
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
-fc.HWA <- forecast(HWA, h=1616)
+fc.HWA <- forecast(HWA, h=testprop)
 RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
-test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:1616]-test.ts)^2))
-predictHWA <- predict(HWA, n.ahead=1616)
+test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:testprop]-test.ts)^2))
+predictHWA <- predict(HWA, n.ahead=testprop)
 
 plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12,
      ylim=c(200,7000),xlim=c(0,270), 
@@ -199,10 +213,10 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
 
 # holtwinter multiplicative
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
-fc.HWM <- forecast(HWM, h=1616)
+fc.HWM <- forecast(HWM, h=testprop)
 RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
-test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:1616]-test.ts)^2))
-predictHWM <- predict(HWM, n.ahead=1616)
+test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:testprop]-test.ts)^2))
+predictHWM <- predict(HWM, n.ahead=testprop)
 
 plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12,
      ylim=c(200,7000),xlim=c(0,270), 
@@ -232,8 +246,8 @@ test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
 View(test.err)
 
 # comparing MAPE
-MAPE.sma <- mean(abs((test.ts-tail(data.gab$forecast, 1616))/test.ts))*100
-MAPE.dma <- mean(abs((test.ts-tail(data.gab2$forecast, 1616))/test.ts))*100
+MAPE.sma <- mean(abs((test.ts-tail(data.gab$forecast, testprop))/test.ts))*100
+MAPE.dma <- mean(abs((test.ts-tail(data.gab2$forecast, testprop))/test.ts))*100
 
 MAPE.ses1 <- mean(abs((fc.ses1 - test.ts)/test.ts)) * 100
 MAPE.ses2 <- mean(abs((fc.ses2 - test.ts)/test.ts)) * 100
@@ -255,3 +269,4 @@ MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                               MAPE.des1, MAPE.des2, MAPE.desopt,
                               MAPE.HWA, MAPE.HWM))
 View(MAPE)
+
