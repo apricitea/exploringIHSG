@@ -70,9 +70,9 @@ legend("topleft",c("Actual","Smoothed","Forecast"), lty=1,
        col=c("black","green","red"), cex=0.8)
 
 # try different moving average
-# periode = 7
-# periode = 30
-periode = 365
+# period = 7
+# period = 30
+period = 365
 
 # double moving average
 dma <- SMA(data.sma, n = period)
