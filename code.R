@@ -14,8 +14,6 @@ sum(is.na(df))
 
 # handling NA using interpolation 
 df.imputed <- na_interpolation(df)
-kalman <-  na_kalman(df$JKSE.Adjusted)
-seadec <- na_seadec(ts(df$JKSE.Adjusted,frequency=30))
 
 # plot to check whether interpolating the data changes its trend
 ggplot_na_imputations(df$JKSE.Adjusted, df.imputed$JKSE.Adjusted)
@@ -54,7 +52,7 @@ seasonal.train <- head(seasonal, trainprop)
 seasonal.test <- tail(seasonal, testprop)
 
 # single moving average
-data.sma<-SMA(train.ts, n=21)
+data.sma<-SMA(train.ts, n=30)
 data.fc<-c(NA,data.sma)
 data.gab<-data.frame(cbind(actual=c(train.ts,rep(NA,testprop)),smoothing=c(data.sma,rep(NA,testprop)),
                 forecast=c(data.fc,rep(data.fc[length(data.fc)],testprop-1))))
@@ -71,10 +69,15 @@ lines(test.ts)
 legend("topleft",c("Actual","Smoothed","Forecast"), lty=1, 
        col=c("black","green","red"), cex=0.8)
 
+# try different moving average
+# periode = 7
+# periode = 30
+periode = 365
+
 # double moving average
-dma <- SMA(data.sma, n = 21)
+dma <- SMA(data.sma, n = period)
 At <- 2*data.sma - dma
-Bt <- 2/(21-1)*(data.sma - dma)
+Bt <- 2/(period-1)*(data.sma - dma)
 data.dma<- At+Bt
 data.fc2<- c(NA, data.dma)
 
@@ -97,7 +100,7 @@ RMSE.dma = sqrt(mean(error.dma[60:length(train.ts)]^2))
 test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, testprop)-test.ts)^2))
 
 ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "DMA of IHSG Adjusted Closing Price m=30",ylim=c(200,7000))
+        main= "DMA of IHSG Adjusted Closing Price m=365",ylim=c(200,7000))
 lines(data.gab2[,3],col="green",lwd=2)
 lines(data.gab2[,6],col="red",lwd=2)
 lines(test.ts)
@@ -108,6 +111,8 @@ legend("topleft",c("Actual","Smoothed","Forecast"), lty=1,
 ses.1 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.5)
 ses.2 <- HoltWinters(train.ts, gamma = F, beta = F, alpha = 0.9)
 ses.opt <- HoltWinters(train.ts, gamma = F, beta = F) 
+
+ses.opt #optimum parameter for ses
 
 RMSE.ses1 <- sqrt(ses.1$SSE/length(train.ts))
 RMSE.ses2 <- sqrt(ses.2$SSE/length(train.ts))
@@ -121,7 +126,7 @@ test.RMSE.SES1 <- sqrt(mean((fc.ses1-test.ts)^2))
 test.RMSE.SES2 <- sqrt(mean((fc.ses2-test.ts)^2))
 test.RMSE.SESopt <- sqrt(mean((fc.sesopt-test.ts)^2))
 
-plot(train.ts,main="SES with Optimal parameter alpha=0.9999374",type="l",col="black",pch=12,
+plot(train.ts,main="SES with Optimal parameter alpha=0.9999368",type="l",col="black",pch=12,
      ylab="IHSG Adjusted Closing Price",
      xlim=c(0,8000),ylim=c(200,7000))
 lines(ses.opt$fitted[,2],type="l",col="red")
@@ -168,7 +173,7 @@ test.RMSE.DES1 <- sqrt(mean((fc.des1-test.ts)^2))
 test.RMSE.DES2 <- sqrt(mean((fc.des2-test.ts)^2))
 test.RMSE.DESopt <- sqrt(mean((fc.desopt-test.ts)^2))
 
-plot(train.ts,main="DES with Optimal parameter alpha=1 beta=0.004223736",
+plot(train.ts,main="DES with Optimal parameter alpha=1 beta=0.003",
      type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
      xlim=c(0,8000),ylim=c(200,7000))
 lines(des.opt$fitted[,2],type="l",col="red")
