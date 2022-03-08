@@ -51,6 +51,14 @@ test.ts <- tail(data.ts, testprop)
 seasonal.train <- head(seasonal, trainprop)
 seasonal.test <- tail(seasonal, testprop)
 
+#### Stationary Test ####
+adf.test(train.ts)
+
+acf(train.ts, lag.max = 20 ,main = "ACF IHSG Open Price lag 20")
+acf(train.ts, lag.max = 1000, main = "ACF IHSG Open Price lag 1000") 
+pacf(train.ts, lag.max = 10, main = "PACF IHSG Open Price") #cutoff di 
+eacf(train.ts)
+
 # single moving average
 data.sma<-SMA(train.ts, n=30)
 data.fc<-c(NA,data.sma)
