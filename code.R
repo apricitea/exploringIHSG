@@ -3,6 +3,8 @@ library(imputeTS)
 library(ggplot2)
 library(TTR)
 library(forecast)
+library(aTSA)
+library(TSA)
 
 # set the work directory and import the data
 setwd("C:/Users/Haci/Desktop/Metode Peramalan Deret Waktu/Project-20220127")
@@ -54,9 +56,9 @@ seasonal.test <- tail(seasonal, testprop)
 #### Stationary Test ####
 adf.test(train.ts)
 
-acf(train.ts, lag.max = 20 ,main = "ACF IHSG Open Price lag 20")
-acf(train.ts, lag.max = 1000, main = "ACF IHSG Open Price lag 1000") 
-pacf(train.ts, lag.max = 10, main = "PACF IHSG Open Price") #cutoff di 
+acf(train.ts, lag.max = 20 ,main = "ACF IHSG Adjusted Closing Price lag max 20")
+acf(train.ts, lag.max = 1000, main = "ACF IHSG Adjusted Closing Price lag max 1000") 
+pacf(train.ts, lag.max = 10, main = "PACF IHSG Adjusted Closing Price") 
 eacf(train.ts)
 
 # single moving average

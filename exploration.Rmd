@@ -1,0 +1,83 @@
+---
+title: "IHSGExploration"
+author: "Kelompok 14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Anggota Kelompok
+- G14190007 Dhiffa Fatihah Umami
+- G14190026 Nenden Maulidia
+- G14190043 Tony Alfan
+- G14190047 Alvin Christian
+- G14190071 Muhammad Hadyan Rizki
+
+Importing libraries
+```{r error=F, warning=F, message=F}
+library(aTSA)
+library(imputeTS)
+library(knitr)
+```
+
+Our first step would be to import the IHSG dataset and have a look at the first few data.
+```{r error=F, warning=F, message=F}
+ihsg <- read.csv("C:/Users/Haci/Desktop/Metode Peramalan Deret Waktu/Project-20220127/IHSG7days.csv", sep=";")
+kable(ihsg[1:10,], caption="First 10 rows of IHSG daily prices")
+```
+
+From the first 10 rows of data, we can see that there are some missing values. We also knew that stock market doesn't open at weekends so more missing values. If we were to perform time series analysis on the daily prices of IHSG, the missing values should be imputed. We will do the imputation using Linear Interpolation. 
+
+```{r error=F, warning=F, message=F}
+ihsg.imputed <- na_interpolation(ihsg)
+ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
+```
+
+We can see that the imputation doesn't change the trend of the IHSG Adjusted Closing Price. Now let's see the full time series plot of daily Adjusted Closing Price of IHSG.
+
+```{r error=F, warning=F, message=F}
+ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
+ts.plot(ihsg.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price", 
+        main="IHSG Adjusted Closing Price Overtime")
+```
+
+Based on the time series plot, we can see that our data is not stationary. We can get a closer look through ACF and PACF plot.
+
+```{r error=F, warning=F, message=F}
+acf(ihsg.ts, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
+pacf(ihsg.ts, lag.max = 50, main = "PACF IHSG Adjusted Closing Price") 
+adf.test(ihsg.ts)
+```
+
+ACF plot clearly shows that the ACF is decreassing exponentially. Thus, our data is not stationary. It is also confirmed by the ADF test that the IHSG adjusted closing price is not stationary. There are ways to solve this problem, but first we will try to differencing our data.
+
+```{r}
+ihsg.diff <- diff(ihsg.ts, difference=1)
+ts.plot(ihsg.diff, xlab="Time Period", ylab="IHSG Adjusted Closing Price Difference", main="IHSG Adjusted Closing Price Difference Overtime")
+```
+
+From the time series plot, we can see that the data has become stationary in trend but not in variance. We can confirm this using ACF and PACF plots and perform ADF test.
+
+```{r error=F, warning=F, message=F}
+acf(ihsg.diff, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
+pacf(ihsg.diff, lag.max = 50, main = "PACF IHSG Adjusted Closing Price") 
+adf.test(ihsg.ts)
+```
+
+Now ACF and PACF plot and the ADF test suggest that the difference of IHSG adjusted closing price is stationary. But we still need to solve the non-stationarity in variance. Our first attempt is by transforming data using several methods.
+
+```{r error=F, warning=F, message=F}
+ihsg.sqrt <- ihsg.diff^(1/2)
+ihsg.cbrt <- ihsg.diff^(1/3)
+ihsg.log <- log(ihsg.diff+abs(min(ihsg.diff)))
+ihsg.inv <- -1/ihsg.diff
+
+ts.plot(ihsg.sqrt)
+ts.plot(ihsg.cbrt)
+ts.plot(ihsg.log)
+ts.plot(ihsg.inv)
+```
+
+None of those transformation succeed in solving our non-stationarity in variance. Further exploration are needed.
