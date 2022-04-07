@@ -8,7 +8,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Anggota Kelompok
+## Anggota Kelompok
 - G14190007 Dhiffa Fatihah Umami
 - G14190026 Nenden Maulidia
 - G14190043 Tony Alfan
@@ -25,10 +25,11 @@ Dataset yang akan digunakan merupakan dataset IHSG dari tanggal 1 Januari 1991 h
 - Bursa Efek Indonesia tidak dibuka pada hari sabtu dan minggu
 - Bursa Efek Indonesia tidak dibuka pada tanggal merah
 
-Mengapa perlu dilakukan imputasi? Karena pada hari sabtu & minggu dan pada tanggal merah, masyarakat tetap dapat memiliki perubahan opini terhadap harga saham. Contohnya, perusahaan X terkena kasus pada hari sabtu, maka masyarakat akan cenderung memberikan harga lebih kecil terhadap saham perusahaan X sehingga ketika pasar saham dibuka, harga saham perusahaan X akan langsung menurun. Hal ini juga diperkuat fakta bahwa analisis time series memerlukan seluruh amatan secara lengkap.
+Mengapa perlu dilakukan imputasi? Karena pada hari sabtu & minggu dan pada tanggal merah, masyarakat tetap dapat memiliki perubahan opini terhadap harga saham. Contohnya, perusahaan X terkena kasus pada hari sabtu, maka masyarakat akan cenderung memberikan harga lebih kecil terhadap saham perusahaan X sehingga ketika pasar saham dibuka, harga saham perusahaan X akan langsung menurun. Hal ini juga diperkuat fakta bahwa analisis time series memerlukan seluruh amatan secara lengkap. Metode imputasi yang kami gunakan adalah dengan interpolasi linear. 
 
-Metode imputasi yang kami gunakan adalah dengan interpolasi linear. Hal ini dapat dilakukan di R dengan library “imputeTS” dengan function na_interpolation().
+Harga saham yang akan diamati adalah Adjusted Closing Price (harga closing yang sudah disesuaikan). Harga closing hanya menyatakan harga terakhir ketika pasar saham ditutup. Sedangkan harga closing yang telah disesuaikan mempertimbangkan faktor lain seperti dividen, stock splits, dan penawaran saham baru. 
 
+## Import data dan Libraries
 Importing libraries
 ```{r error=F, warning=F, message=F}
 library(aTSA)
@@ -37,20 +38,21 @@ library(knitr)
 library(MASS)
 ```
 
-Our first step would be to import the IHSG dataset and have a look at the first few data.
+Import data dan melihat 10 data pertama.
 ```{r error=F, warning=F, message=F}
 ihsg <- read.csv("C:/Users/Haci/Desktop/Metode Peramalan Deret Waktu/Project-20220127/IHSG7days.csv", sep=";")
 kable(ihsg[1:10,], caption="First 10 rows of IHSG daily prices")
 ```
 
-From the first 10 rows of data, we can see that there are some missing values. We also knew that stock market doesn't open at weekends so more missing values. If we were to perform time series analysis on the daily prices of IHSG, the missing values should be imputed. We will do the imputation using Linear Interpolation. 
+Dari 10 data pertama, dapat dilihat bahwa terdapat beberapa missing values. Pasar Saham tidak dibuka pada hari sabtu-minggu dan tanggal merah, sehingga dapat dipastikan akan terdapat missingvalue tiap minggunya. Maka akan dilakukan interpolasi untuk mengatasi missing value tersebut.
 
 ```{r error=F, warning=F, message=F}
 ihsg.imputed <- na_interpolation(ihsg)
 ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
 ```
 
-We can see that the imputation doesn't change the trend of the IHSG Adjusted Closing Price. Now let's see the full time series plot of daily Adjusted Closing Price of IHSG.
+Dapat kita lihat bahwa imputasi tidak mengubah tren dari harga Adjusted Closing Price. Mari kita coba amati plot time series dari Adjusted Closing Price harian IHSG.
+
 
 ```{r error=F, warning=F, message=F}
 ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
@@ -58,7 +60,8 @@ ts.plot(ihsg.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price",
         main="IHSG Adjusted Closing Price Overtime")
 ```
 
-Based on the time series plot, we can see that our data is not stationary. We can get a closer look through ACF and PACF plot.
+Berdasarkan plot time series, terlihat bahwa data yang kita miliki tidak stasioner secara rataan maupun secara ragama. Dapat diamati lebih lanjut dengan plot ACF dan PACF.
+
 
 ```{r error=F, warning=F, message=F}
 acf(ihsg.ts, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
@@ -66,14 +69,14 @@ pacf(ihsg.ts, lag.max = 50, main = "PACF IHSG Adjusted Closing Price")
 adf.test(ihsg.ts)
 ```
 
-ACF plot clearly shows that the ACF is decreassing exponentially. Thus, our data is not stationary. It is also confirmed by the ADF test that the IHSG adjusted closing price is not stationary. There are ways to solve this problem, but first we will try to differencing our data.
+Plot ACF secara jelas menunjukkan bahwa nilai ACF menurun secara eksponensial. Maka, dapat disimpulkan bahwa data yang kita miliki tidak stasioner. Hal ini juga dikonfirmasi dengan uji formal yang dilakukan dengan ADF (Augmented Dicky-Fuller) test bahwa data tidak stasioner. Hal selanjutnya yang kami coba dalah melakukan differencing sebanyak satu kali.
 
 ```{r}
 ihsg.diff <- diff(ihsg.ts, difference=1)
 ts.plot(ihsg.diff, xlab="Time Period", ylab="IHSG Adjusted Closing Price Difference", main="IHSG Adjusted Closing Price Difference Overtime")
 ```
 
-From the time series plot, we can see that the data has become stationary in trend but not in variance. We can confirm this using ACF and PACF plots and perform ADF test.
+Dari plot time series, terlihat bahwa data IHSG yang telah didifferencingkan telah stasioner secara rataan namun tidak dalam ragam. Hal ini dapat dilihat lebih lanjut dengan plot ACF dan PACF dan dengan uji ADF.
 
 ```{r error=F, warning=F, message=F}
 acf(ihsg.diff, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
@@ -81,7 +84,7 @@ pacf(ihsg.diff, lag.max = 50, main = "PACF IHSG Adjusted Closing Price")
 adf.test(ihsg.ts)
 ```
 
-Now ACF and PACF plot and the ADF test suggest that the difference of IHSG adjusted closing price is stationary. But we still need to solve the non-stationarity in variance. Our first attempt is by transforming data using several methods.
+Dapat diamati bahwa Plot ACF dan PACF mendukung bahwa IHSG yang telah didifferencingkan telah stasioner. Hal ini dikonfirmasi oleh uji ADF. Namun Ketidakstasioneran dalam ragam terlihat jelas dalam plot time series sehingga masih perlu diselesaikan. Langkah pertama yang kami coba adalah dengan menerapkan beberapa transformasi.
 
 ```{r error=F, warning=F, message=F}
 ihsg.sqrt <- ihsg.diff^(1/2)
@@ -104,7 +107,18 @@ ihsg.bc <- ihsg.diff^(lambda)
 ts.plot(ihsg.bc)
 ```
 
-None of those transformation succeed in solving our non-stationarity in variance. We've also tried Box Cox transformation but it doesn't succeed either. Further exploration is needed.
+Tidak ada transformasi yang sukses menyelesaikan permasalahan ragam yang tidak stasioner. Transformasi BoxCox juga sudah dicoba namun belum dapat menyelsaikan juga. 
+
+Salah satu dugaan adalah keragaman tersebut timbul akibat adanya inflasi karena periode waktu yang digunakan cukup besar yaitu 30 tahun, maka pengaruh inflasi terhadap fluktuasi harga sama mungkin mengakibatkan keragaman yang lebih besar.
+
+```{r}
+par(mfrow=c(1,2))
+ts.plot(ihsg.ts, main="IHSG Adjusted Closing Price 1991-2020")
+ts.plot(ihsg.ts[0:2000], main="IHSG Adjusted Closing Price 1991-1996")
+
+```
+
+Dapat kita lihat bahwa jika dibandingkan secara berdampingan, terlihat sebenarnya data dari tahun 1991-1996 juga mengalami fluktuasi yang cukup besar. Namun pada plot data dari tahun 1991-2020, fluktuasi/perubahan harga saham harian pada tahun 1991-1996 tidak begitu terlihat. Hal ini sangat mungkin disebabkan inflasi sehingga harga saham tahun 1991-1996 jika dibandingkan tahun 2010 ke atas akan terlihat tidak begitu beragam.
 
 ## References
 Afittia W. 2018. Penerapan Metode Eksponensial Smoothing untuk Meramalkan Indeks Harga Saham Gabungan pada Tahun 2018-2020. Medan (ID) : Universitas Sumatera Utara.
