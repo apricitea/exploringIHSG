@@ -105,3 +105,8 @@ ts.plot(ihsg.bc)
 ```
 
 None of those transformation succeed in solving our non-stationarity in variance. We've also tried Box Cox transformation but it doesn't succeed either. Further exploration is needed.
+
+## References
+Afittia W. 2018. Penerapan Metode Eksponensial Smoothing untuk Meramalkan Indeks Harga Saham Gabungan pada Tahun 2018-2020. Medan (ID) : Universitas Sumatera Utara.
+
+Krisna AAGD, Wirawati NGP. 2013. Pengaruh inflasi, nilai tukar rupiah, suku bunga sbi pada indeks harga saham gabungan di bei. E-Jurnal Akuntansi. 3(2) : 421-435.
