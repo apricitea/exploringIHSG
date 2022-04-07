@@ -1,5 +1,5 @@
 ---
-title: "IHSGExploration"
+title: "Eksplorasi Data Adjusted Closing Price IHSG"
 author: "Kelompok 14"
 output: html_document
 ---
@@ -15,11 +15,26 @@ knitr::opts_chunk$set(echo = TRUE)
 - G14190047 Alvin Christian
 - G14190071 Muhammad Hadyan Rizki
 
+## IHSG
+Indeks Harga Saham Gabungan (IHSG) merupakan catatan-catatan atas perubahan maupun pergerakan harga saham sejak mulai pertama kali beredar sampai pada suatu saat tertentu. Ada beberapa faktor yang mempengaruhi IHSG, salah satunya adalah faktor makroekonomi seperti tingkat inflasi, nilai tukar rupiah, tingkat suku bunga dan lain-lain (Krisna dan Wirawati 2013).
+
+Indeks Harga Saham Gabungan (IHSG) merupakan suatu nilai untuk mengukur kinerja seluruh saham. IHSG mencerminkan perkembangan pasar secara keseluruhan. Jika IHSG mengalami kenaikan dari hari kemarin maka beberapa saham yang berada pada bursa efek mengalami kenaikan. Oleh karena itu, peramalan harga akan sangat bermanfaat untuk para investor sehingga mereka dapat mengetahui prospek investasi saham di masa yang akan datang (Afittia 2018).
+
+Dataset yang akan digunakan merupakan dataset IHSG dari tanggal 1 Januari 1991 hingga 31 Desember 2020 dengan jumlah 10.598 amatan data.Karena ada banyak missing value, maka perlu dilakukan imputasi. Mengapa bisa ada missing value?
+
+- Bursa Efek Indonesia tidak dibuka pada hari sabtu dan minggu
+- Bursa Efek Indonesia tidak dibuka pada tanggal merah
+
+Mengapa perlu dilakukan imputasi? Karena pada hari sabtu & minggu dan pada tanggal merah, masyarakat tetap dapat memiliki perubahan opini terhadap harga saham. Contohnya, perusahaan X terkena kasus pada hari sabtu, maka masyarakat akan cenderung memberikan harga lebih kecil terhadap saham perusahaan X sehingga ketika pasar saham dibuka, harga saham perusahaan X akan langsung menurun. Hal ini juga diperkuat fakta bahwa analisis time series memerlukan seluruh amatan secara lengkap.
+
+Metode imputasi yang kami gunakan adalah dengan interpolasi linear. Hal ini dapat dilakukan di R dengan library “imputeTS” dengan function na_interpolation().
+
 Importing libraries
 ```{r error=F, warning=F, message=F}
 library(aTSA)
 library(imputeTS)
 library(knitr)
+library(MASS)
 ```
 
 Our first step would be to import the IHSG dataset and have a look at the first few data.
@@ -80,4 +95,13 @@ ts.plot(ihsg.log)
 ts.plot(ihsg.inv)
 ```
 
-None of those transformation succeed in solving our non-stationarity in variance. Further exploration are needed.
+```{r error=F, warning=F, message=F}
+minvalue <- abs(min(ihsg.diff))+1
+bcd <- boxcox((ihsg.diff+minvalue) ~ 1)
+lambda <- bcd$x[which.max(bcd$y)]; lambda
+
+ihsg.bc <- ihsg.diff^(lambda)
+ts.plot(ihsg.bc)
+```
+
+None of those transformation succeed in solving our non-stationarity in variance. We've also tried Box Cox transformation but it doesn't succeed either. Further exploration is needed.
