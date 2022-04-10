@@ -11,6 +11,9 @@ setwd("C:/Users/Haci/Desktop/Metode Peramalan Deret Waktu/Project-20220127")
 df <- read.csv("IHSG.csv", sep=";")
 View(df)
 
+# Set date variable as date format
+df$X <- as.Date(df$X, format = "%d/%m/%Y")
+
 # as we can see, our data has many missing values, let's find out how many are there
 sum(is.na(df))
 
@@ -29,8 +32,9 @@ data.ts <- ts(df.imputed$JKSE.Adjusted)
 seasonal <- ts(df.imputed$JKSE.Adjusted, frequency=30)
 
 # look at the time series plot of IHSG closing price
-ts.plot(data.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price", 
-        main="IHSG Adjusted Closing Price Overtime")
+plot(df.imputed$JKSE.Close~df.imputed$X,
+     type = "l", xlab = "Tahun", main = "IHSG Adjusted Closing Price Overtime",
+     ylab = "IHSG Adjusted Closing Price")
 
 #compare proportion
 #0.9 train 0.1 test
