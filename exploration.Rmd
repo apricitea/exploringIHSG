@@ -20,14 +20,14 @@ Indeks Harga Saham Gabungan (IHSG) merupakan catatan-catatan atas perubahan maup
 
 Indeks Harga Saham Gabungan (IHSG) merupakan suatu nilai untuk mengukur kinerja seluruh saham. IHSG mencerminkan perkembangan pasar secara keseluruhan. Jika IHSG mengalami kenaikan dari hari kemarin maka beberapa saham yang berada pada bursa efek mengalami kenaikan. Oleh karena itu, peramalan harga akan sangat bermanfaat untuk para investor sehingga mereka dapat mengetahui prospek investasi saham di masa yang akan datang (Afittia 2018).
 
-Dataset yang akan digunakan merupakan dataset IHSG dari tanggal 1 Januari 1991 hingga 31 Desember 2020 dengan jumlah 10.598 amatan data.Karena ada banyak missing value, maka perlu dilakukan imputasi. Mengapa bisa ada missing value?
+Dataset yang akan digunakan merupakan dataset IHSG dari tanggal 1 Januari 2017 hingga 31 Maret 2022 dengan jumlah 1.916 amatan. Karena terdapat banyak missing value, maka perlu dilakukan imputasi. Mengapa bisa ada missing value?
 
 - Bursa Efek Indonesia tidak dibuka pada hari sabtu dan minggu
 - Bursa Efek Indonesia tidak dibuka pada tanggal merah
 
 Mengapa perlu dilakukan imputasi? Karena pada hari sabtu & minggu dan pada tanggal merah, masyarakat tetap dapat memiliki perubahan opini terhadap harga saham. Contohnya, perusahaan X terkena kasus pada hari sabtu, maka masyarakat akan cenderung memberikan harga lebih kecil terhadap saham perusahaan X sehingga ketika pasar saham dibuka, harga saham perusahaan X akan langsung menurun. Hal ini juga diperkuat fakta bahwa analisis time series memerlukan seluruh amatan secara lengkap. Metode imputasi yang kami gunakan adalah dengan interpolasi linear. 
 
-Harga saham yang akan diamati adalah Adjusted Closing Price (harga closing yang sudah disesuaikan). Harga closing hanya menyatakan harga terakhir ketika pasar saham ditutup. Sedangkan harga closing yang telah disesuaikan mempertimbangkan faktor lain seperti dividen, stock splits, dan penawaran saham baru. 
+Harga saham yang akan diamati adalah Adjusted Closing Price (harga closing yang sudah disesuaikan). Harga closing hanya menyatakan harga terakhir ketika pasar saham ditutup. Sedangkan harga closing yang telah disesuaikan mempertimbangkan faktor lain seperti dividen, stock splits, dan penawaran saham baru sehingga bisa menggambarkan nilai saham dengan lebih baik. 
 
 ## Import data dan Libraries
 Importing libraries
@@ -36,15 +36,27 @@ library(aTSA)
 library(imputeTS)
 library(knitr)
 library(MASS)
+library(quantmod)
 ```
 
 Import data dan melihat 10 data pertama.
 ```{r error=F, warning=F, message=F}
-ihsg <- read.csv("C:/Users/Haci/Desktop/Metode Peramalan Deret Waktu/Project-20220127/IHSG7days.csv", sep=";")
-kable(ihsg[1:10,], caption="First 10 rows of IHSG daily prices")
+start <- as.POSIXct("2017-01-01")
+end <- as.POSIXct("2022-03-31")
+getSymbols(Symbols = "^JKSE",src = "yahoo", from = start, to = end)
+data <- as.data.frame(JKSE)
+
+data$Date <- as.Date(rownames(data))
+fulldates <- data.frame(Date=seq(as.Date("2017-01-01"), as.Date("2022-03-31"), by="days"))
+
+ihsg <- merge(fulldates,data,by="Date",all.x=T)
+
+kable(head(ihsg,10), caption="First 10 rows of IHSG daily prices")
 ```
 
-Dari 10 data pertama, dapat dilihat bahwa terdapat beberapa missing values. Pasar Saham tidak dibuka pada hari sabtu-minggu dan tanggal merah, sehingga dapat dipastikan akan terdapat missingvalue tiap minggunya. Maka akan dilakukan interpolasi untuk mengatasi missing value tersebut.
+Dari 10 data pertama, dapat dilihat bahwa terdapat beberapa missing values. Pasar Saham tidak dibuka pada hari sabtu-minggu dan tanggal merah, sehingga dapat dipastikan akan terdapat missingvalue tiap minggunya. Maka akan dilakukan interpolasi linear untuk mengatasi missing value tersebut.
+
+## Imputasi Missing Values
 
 ```{r error=F, warning=F, message=F}
 ihsg.imputed <- na_interpolation(ihsg)
@@ -53,72 +65,34 @@ ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
 
 Dapat kita lihat bahwa imputasi tidak mengubah tren dari harga Adjusted Closing Price. Mari kita coba amati plot time series dari Adjusted Closing Price harian IHSG.
 
+## Eksplorasi Plot Deret Waktu
 
 ```{r error=F, warning=F, message=F}
 ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
-ts.plot(ihsg.ts, xlab="Time Period", ylab="IHSG Adjusted Closing Price", 
-        main="IHSG Adjusted Closing Price Overtime")
+plot(ihsg.imputed$JKSE.Adjusted~ihsg.imputed$Date,
+     type = "l", xlab = "Tahun", main = "IHSG Adjusted Closing Price Overtime",
+     ylab = "IHSG Adjusted Closing Price")
 ```
 
-Berdasarkan plot time series, terlihat bahwa data yang kita miliki tidak stasioner secara rataan maupun secara ragama. Dapat diamati lebih lanjut dengan plot ACF dan PACF.
+## Eksplorasi Boxplot per tahun
 
+```{r error=F, warning=F, message=F}
+year <- as.numeric(format(ihsg.imputed$Date,"%Y"))
+month <- as.numeric(format(ihsg.imputed$Date, "%m"))
+ihsg <- cbind(ihsg.imputed, year, month)
+boxplot(ihsg$JKSE.Adjusted ~ ihsg$year, main="Boxplot Adjusted Closing Price IHSG tiap tahun", xlab="Tahun", ylab="IHSG Adjusted Closing Price")
+```
 
+Berdasarkan plot time series dari seluruh data yang digunakan, terlihat bahwa data yang kita miliki tidak stasioner secara rataan maupun secara ragam.
+
+## Plot ACF dan PACF
 ```{r error=F, warning=F, message=F}
 acf(ihsg.ts, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
 pacf(ihsg.ts, lag.max = 50, main = "PACF IHSG Adjusted Closing Price") 
 adf.test(ihsg.ts)
 ```
 
-Plot ACF secara jelas menunjukkan bahwa nilai ACF menurun secara eksponensial. Maka, dapat disimpulkan bahwa data yang kita miliki tidak stasioner. Hal ini juga dikonfirmasi dengan uji formal yang dilakukan dengan ADF (Augmented Dicky-Fuller) test bahwa data tidak stasioner. Hal selanjutnya yang kami coba dalah melakukan differencing sebanyak satu kali.
-
-```{r}
-ihsg.diff <- diff(ihsg.ts, difference=1)
-ts.plot(ihsg.diff, xlab="Time Period", ylab="IHSG Adjusted Closing Price Difference", main="IHSG Adjusted Closing Price Difference Overtime")
-```
-
-Dari plot time series, terlihat bahwa data IHSG yang telah didifferencingkan telah stasioner secara rataan namun tidak dalam ragam. Hal ini dapat dilihat lebih lanjut dengan plot ACF dan PACF dan dengan uji ADF.
-
-```{r error=F, warning=F, message=F}
-acf(ihsg.diff, lag.max = 50, main = "ACF IHSG Adjusted Closing Price") 
-pacf(ihsg.diff, lag.max = 50, main = "PACF IHSG Adjusted Closing Price") 
-adf.test(ihsg.ts)
-```
-
-Dapat diamati bahwa Plot ACF dan PACF mendukung bahwa IHSG yang telah didifferencingkan telah stasioner. Hal ini dikonfirmasi oleh uji ADF. Namun Ketidakstasioneran dalam ragam terlihat jelas dalam plot time series sehingga masih perlu diselesaikan. Langkah pertama yang kami coba adalah dengan menerapkan beberapa transformasi.
-
-```{r error=F, warning=F, message=F}
-ihsg.sqrt <- ihsg.diff^(1/2)
-ihsg.cbrt <- ihsg.diff^(1/3)
-ihsg.log <- log(ihsg.diff+abs(min(ihsg.diff)))
-ihsg.inv <- -1/ihsg.diff
-
-ts.plot(ihsg.sqrt)
-ts.plot(ihsg.cbrt)
-ts.plot(ihsg.log)
-ts.plot(ihsg.inv)
-```
-
-```{r error=F, warning=F, message=F}
-minvalue <- abs(min(ihsg.diff))+1
-bcd <- boxcox((ihsg.diff+minvalue) ~ 1)
-lambda <- bcd$x[which.max(bcd$y)]; lambda
-
-ihsg.bc <- ihsg.diff^(lambda)
-ts.plot(ihsg.bc)
-```
-
-Tidak ada transformasi yang sukses menyelesaikan permasalahan ragam yang tidak stasioner. Transformasi BoxCox juga sudah dicoba namun belum dapat menyelsaikan juga. 
-
-Salah satu dugaan adalah keragaman tersebut timbul akibat adanya inflasi karena periode waktu yang digunakan cukup besar yaitu 30 tahun, maka pengaruh inflasi terhadap fluktuasi harga sama mungkin mengakibatkan keragaman yang lebih besar.
-
-```{r}
-par(mfrow=c(1,2))
-ts.plot(ihsg.ts, main="IHSG Adjusted Closing Price 1991-2020")
-ts.plot(ihsg.ts[0:2000], main="IHSG Adjusted Closing Price 1991-1996")
-
-```
-
-Dapat kita lihat bahwa jika dibandingkan secara berdampingan, terlihat sebenarnya data dari tahun 1991-1996 juga mengalami fluktuasi yang cukup besar. Namun pada plot data dari tahun 1991-2020, fluktuasi/perubahan harga saham harian pada tahun 1991-1996 tidak begitu terlihat. Hal ini sangat mungkin disebabkan inflasi sehingga harga saham tahun 1991-1996 jika dibandingkan tahun 2010 ke atas akan terlihat tidak begitu beragam.
+Plot ACF secara jelas menunjukkan bahwa nilai ACF menurun secara eksponensial. Maka, dapat disimpulkan bahwa data yang kita miliki tidak stasioner. Hal ini juga dikonfirmasi dengan uji formal yang dilakukan dengan ADF (Augmented Dicky-Fuller) test bahwa data tidak stasioner. Hal selanjutnya yang kami coba adalah melakukan differencing sebanyak satu kali.
 
 ## References
 Afittia W. 2018. Penerapan Metode Eksponensial Smoothing untuk Meramalkan Indeks Harga Saham Gabungan pada Tahun 2018-2020. Medan (ID) : Universitas Sumatera Utara.
