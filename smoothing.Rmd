@@ -15,6 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 - G14190047 Alvin Christian
 - G14190071 Muhammad Hadyan Rizki
 
+# Preprocessing Data
+
 ## Import Library dan Dataset
 Mengimport libraries yang akan digunakan
 ```{r error=F, warning=F, message=F}
@@ -72,12 +74,21 @@ seasonal.train <- head(ihsg.seasonal, train.prop)
 seasonal.test <- tail(ihsg.seasonal, test.prop)
 ```
 
-## Single Moving Average
+# Moving Average
+Menurut Makridakis, Wheelwright dan McGee (1995) Single Moving Average (SMA) atau rata-rata bergerak tunggal adalah nilai rata-rata yang tidak tertimbang dari n data sebelumnya atau dengan kata lain sebuah teknik yang merata-ratakan sebuah angka dari nilai aktual terbaru, diperbaharui sebagai nilai-nilai baru yang tersedia.
+
+Double Moving Average (DMA) adalah metode dimana satu kelompok rata-rata bergerak dihitung, dan kemudian kelompok kedua dihitung rata-rata bergerak hasil pada kelompok pertama (Hanke et al. 2003).
+
+Berdasarkan penelitian yang dilakukan oleh Hadi et al. (2021) perbandingan parameter N untuk peramalan saham BBRI dengan metode Single Moving Average (SMA) menggunakan n = 3, 5, 7, 9 dan 11. Hasil dari penelitian tersebut menunjukkan bahwa metode SMA dengan n = 3 memberikan nilai MAPE paling kecil diantara nilai parameter n yang lain. Oleh karena itu, kita akan menggunakan n=3 pada metode SMA
+
+Berdasarkan penelitian yang dilakukan oleh Afifah et al. (2020) proses peramalan IHSG dengan metode Double Moving Average(DMA) menggunakan parameter n=3. Oleh karena itu, kita akan menggunakan n=3 pada metode DMA. 
+
 Menetapkan parameter m = 3 untuk moving average. 
 ```{r error=F, warning=F, message=F}
 m = 3
 ```
 
+## Single Moving Average
 ```{r error=F, warning=F, message=F}
 data.sma <- SMA(ts.train, n=m)
 data.fc <- c(NA,data.sma)
@@ -125,7 +136,15 @@ legend("topleft",c("Actual","Smoothed","Forecast"), lty=1,
        col=c("black","green","red"), cex=0.7)
 ```
 
+# Exponential Smoothing
+Single Exponential Smoothing (SES) adalah metode peramalan yang digunakan untuk meramalkan masa yang akan datang dengan melakukan proses pemulusan yang menghasilkan data ramalan yang lebih kecil nilai kesalahannya. Dalam pemulusan eksponensial terdapat satu atau lebih parameter pemulusan yang ditentukan secara eksplisit dan hasil pilihan menentukan bobot yang dikenakan pada nilai observasi (Makridakis et al. 1999).
+
+Double Exponential Smoothing (DES) adalah metode yang digunakan ketika data menunjukan adanya trend. Exponential Smoothing dengan adanya trend seperti pemulusan sederhana kecuali bahwa dua komponen harus diperbarui setiap periode, level, dan trendnya. Dimana level adalah estimasi yang dimuluskan dari nilai data pada akhir masing-masing periode (Agus 2009).
+
+
 ## Single Exponential Smoothing
+Menurut Indah (2021), metode peramalan IHSG dengan menggunakan metode Single Exponential Smoothing (SES) diperoleh tingkat kesalahan yang paling kecil dibanding metode lainnya yakni ketika alpha = 0.5. Sedangkan menurut Siregar (2016), alpha optimum untuk meramal IHSG menggunakan metode SES yaitu ketika alpha = 0.9.
+
 ```{r error=F, warning=F, message=F}
 ses.1 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.5)
 ses.2 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.9)
@@ -137,7 +156,7 @@ fc.ses1 <- predict(ses.1, n.ahead = test.prop)
 fc.ses2 <- predict(ses.2, n.ahead = test.prop)
 fc.sesopt <- predict(ses.opt, n.ahead = test.prop)
 
-plot(ts.train,main="SES with Optimal parameter alpha=0.9999285",type="l",col="black",pch=12,
+plot(ts.train,main="SES with Optimal parameter alpha=0.9999414", type="l", col="black", pch=12,
      ylab="IHSG Adjusted Closing Price", xlim=c(0,1916), ylim=c(3900,7050))
 lines(ses.opt$fitted[,2],type="l",col="red")
 lines(fc.sesopt,type="l",col="blue")
@@ -164,6 +183,8 @@ legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
 ```
 
 ## Double Exponential Smoothing
+Pada metode Double Exponential Smoothing (DES) diperoleh nilai alpha = 1 dan beta = 0.02380527 sebagai nilai konstanta smoothing untuk estimasi level dan trend yang optimal sehingga dapat menghasilkan plot data model yang berhimpitan dengan data observasi (Slamet, Subanti, dan Susanto 2020). Menurut Purnamasari dan Sudirman (2019) model peramalan IHSG dengan menggunakan metode DES untuk alpha = 0.86 dan beta = 0.01 menunjukkan adanya kecenderungan trend naik, dengan nilai MAPE di bawah 3%.
+
 ```{r error=F, warning=F, message=F}
 des.1 <- HoltWinters(ts.train, alpha = 1, beta=0.024, gamma=F)
 des.2 <- HoltWinters(ts.train, alpha = 0.86, beta=0.01, gamma=F)
@@ -175,7 +196,7 @@ fc.des1 <- predict(des.1, n.ahead = test.prop)
 fc.des2 <- predict(des.2, n.ahead = test.prop)
 fc.desopt <- predict(des.opt, n.ahead = test.prop)
 
-plot(ts.train,main="DES with Optimal parameter alpha=1 beta=0",
+plot(ts.train,main="DES with Optimal parameter alpha=1 beta=0.01499698",
      type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
      xlim=c(0,1916),ylim=c(3900,8500))
 lines(des.opt$fitted[,2],type="l",col="red")
@@ -202,6 +223,12 @@ lines(ts.test,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
 ```
+
+# Holtwinter Seasonal
+Holt-Winters atau Triple Exponential Smoothing adalah metode yang digunakan untuk data yang menunjukkan trend dan pengaruh musiman (Kalekar 2004). Mengatasi pengaruh musiman diperlukan parameter  ketiga (gamma).  Berdasarkan tipe pengaruh musiman, metode Holt-Winters dapat dikelompokkan menjadi 2, yaitu:
+- Multiplicative seasonal model
+- Additive seasonal model
+
 
 ## Holtwinter Additive
 ```{r error=F, warning=F, message=F}
@@ -234,6 +261,10 @@ lines(seasonal.test,type="l")
 legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1,cex=0.7)
 ```
+
+# Metrik untuk mengukur akurasi peramalan
+MAPE (Mean Absolute Percentage Error) untuk ukuran kesalahan relatif yang menyatakan persentase kesalahan hasil peramalan terhadap permintaan aktual selama periode tertentu yang akan memberikan informasi persentase kesalahan terlalu tinggi atau rendah (Gaspersz 1998). MSE (Mean Square Error) dihitung dengan menjumlahkan kuadrat semua kesalahan peramalan pada setiap periode dan membaginya dengan jumlah periode peramalan (Vincent 2008). MAE (Mean Absolute Error) untuk ukuran mutlak kesalahan peramalan pada setiap periode yang dibagi dengan jumlah periode peramalan (Qi et al. 2020).
+
 
 ## Membandingkan nilai RMSE dari data training
 ```{r error=F, warning=F, message=F}
@@ -311,7 +342,38 @@ MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
 kable(MAPE)
 ```
 
-## Kesimpulan
+# Kesimpulan
 Berdasarkan nilai RMSE dan MAPE dari data testing, terlihat bahwa metode pemulusan HoltWinter Seasonal (terutama Additive) merupakan metode pemulusan yang paling baik dalam melakukan peramalan Adjusted Closing Price IHSG periode 1 Januari 2017 hingga 31 Maret 2022.  
 
-## Daftar Pustaka
+# Daftar Pustaka
+Afittia W. 2018. Penerapan Metode Eksponensial Smoothing untuk Meramalkan Indeks Harga Saham Gabungan pada Tahun 2018-2020. Medan (ID) : Universitas Sumatera Utara.
+
+Agus, Akbar S. 2009. Penerapan Metode Single Moving Average dan Exponential Smoothing dalam Peramalan Permintaan Produk Meubel Jenis Coffe Table pada Java Furniture Klaten. Jurnal Ilmiah (Online), tersedia : http://core.ac.uk/download/file/478/ 12349901.pdf , diunduh : 23 Februari 2022.
+
+Febriani A.S, Subanti S, Slamet I. 2020. Perbandingan Exponential Smothing Holt’s Method dan Double Moving Averages terhadap Peramalan IHSG. Prosiding Pendidikan Matematika dan Matematika. 2(1):1-9.
+
+Vincent G. 2008. Total Quality Control. Jakarta: PT. Gramedia Pustaka Utama.
+
+Hadi R, Budiman I, Abadi F, Farmandi A, Muliadi. 2021. OPTIMIZATION OF N VALUE ON SINGLE MOVING AVERAGE (SMA) WITH PARTICLE SWARM OPTIMIZATION (PSO) CASE STUDY OF BRI STOCK. Journal of Data Science and Software Engineering. 2(3): 156-170.
+
+Hanke, J.E., Wichern, D.W., Reitsch, A.G. 2003. Peramalan Bisnis. Edisi ke-7. penerjemah; Anantanur, Devy. Jakarta: PT Prenhallindo. Terjemahan dari: Business Forecasting 7th Edition.
+
+Indah N. 2021. Aplikasi metode moving average dan smoothing exponential pada proyeksi harga saham (studi kasus pada harga saham kaef). Jurnal MABIS. 12(2) : 186-196.
+
+Kalekar SP. 2004. Time series Forecasting using Holt-Winters Exponential Smoothing. Mumbai (IN): Kanwal Rekhi School of Information Technology.
+
+Krisna AAGD, Wirawati NGP. 2013. Pengaruh inflasi, nilai tukar rupiah, suku bunga sbi pada indeks harga saham gabungan di bei. E-Jurnal Akuntansi. 3(2) : 421-435.
+
+Makridakis, Spyros, Wheelwright SC, McGee VE, McGee. 1999. Metode dan Aplikasi Peramalan (2th ed) Volume 1. Jakarta (ID) : Erlangga.
+
+Purnamasari I, Sudirman. 2019. Peramalan indeks harga saham gabungan (IHSG) menggunakan metode pemulusan eksponensial ganda dari holt. Prosiding Seminar Nasional Matematika, Statistika, dan Aplikasinya; 2019 Okt 5; Samarinda. Samarinda (ID) : Universitas Mulawarman. hlm 150-157.
+
+Qi J, Du J, Siniscalchi SM, Ma X, Lee CH. 2020. On Mean Absolute Error for Deep Neural Network Based Vector-to-Vector Regression. IEEE Signal Process Lett. 27:1485–1489. doi:10.1109/LSP.2020.3016837.
+
+Siregar RA. 2016. Pembangunan aplikasi berbasis WEB untuk peramalan harga saham dengan metode Moving Average, Exponential Smoothing, dan Artificial Neural Network. [skripsi]. Surabaya (ID) : Institut Teknologi Sepuluh November.
+
+Slamet I, Subanti S, Susanto AF. 2020. Perbandingan Exponential Smoothing Holt’s Method dan Double Moving Averages terhadap peramalan IHSG. Prosiding Pendidikan Matematika dan Matematika Volume 2. Surakarta (ID) : Universitas Sebelas Maret. hlm 1-9. 
+
+Subagyo. 2008. Forecasting Konsep dan Aplikasi. Yogyakarta: BPFE.
+
+V. Gaspersz. 1998. Production Planning and Inventory Control. Jakarta: Gramedia Pustaka Utama.
