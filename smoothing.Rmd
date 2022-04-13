@@ -1,36 +1,68 @@
-#import library
+---
+title: "Pemulusan Harga Adjusted Closing IHSG Periode 1 Januari 2017 - 31 Maret 2022"
+author: "Kelompok 14 - MPDW Genap 21/22"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Anggota Kelompok
+- G14190007 Dhiffa Fatihah Umami
+- G14190026 Nenden Maulidia
+- G14190043 Tony Alfan
+- G14190047 Alvin Christian
+- G14190071 Muhammad Hadyan Rizki
+
+## Import Library dan Dataset
+Mengimport libraries yang akan digunakan
+```{r error=F, warning=F, message=F}
 library(imputeTS)
 library(knitr)
 library(quantmod)
-library(aTSA)
 library(forecast)
+```
 
-#import data
+Import data dan melihat 10 data pertama.
+```{r error=F, warning=F, message=F}
 start <- as.POSIXct("2017-01-01")
 end <- as.POSIXct("2022-03-31")
 getSymbols(Symbols = "^JKSE",src = "yahoo", from = start, to = end)
 data <- as.data.frame(JKSE)
 data$Date <- as.Date(rownames(data))
-View(data)
-
-#export as csv
-#write.csv(data, file="E:/Github/exploringIHSG/IHSG.csv", row.names = T)
-
-#menambahkan tanggal yang kosong di dataset (sabtu-minggu dan tanggal merah)
 fulldates <- data.frame(Date=seq(as.Date("2017-01-01"), as.Date("2022-03-31"), by="days"))
 ihsg <- merge(fulldates,data,by="Date",all.x=T)
-View(ihsg)
 
-#imputasi missing value
-ihsg.imputed <- na_interpolation(ihsg)
+kable(head(ihsg,10), caption="First 10 rows of IHSG daily prices")
+```
+
+Dari 10 data pertama, dapat dilihat bahwa terdapat beberapa missing values. Pasar Saham tidak dibuka pada hari sabtu-minggu dan tanggal merah, sehingga dapat dipastikan akan terdapat missing value tiap minggunya. Maka akan dilakukan interpolasi spline untuk mengatasi missing value tersebut.
+
+## Imputasi Missing Values
+
+```{r error=F, warning=F, message=F}
+ihsg.imputed <- na_interpolation(ihsg, option="spline")
 ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
-View(ihsg.imputed)
+```
 
-#bikin data time series + seasonal ts
+Dapat kita lihat bahwa imputasi tidak mengubah tren dari harga Adjusted Closing Price. Mari kita coba amati plot time series dari Adjusted Closing Price harian IHSG.
+
+## Eksplorasi Plot Deret Waktu
+
+```{r error=F, warning=F, message=F}
 ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
-ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=28) #belum tau/yakin
+plot(ihsg.imputed$JKSE.Adjusted~ihsg.imputed$Date,
+     type = "l", xlab = "Tahun", main = "IHSG Adjusted Closing Price",
+     ylab = "IHSG Adjusted Closing Price")
+```
 
-#train-test split 
+## Train-test split data
+Membagi dataset menjadi data training untuk melatih model dan data testing untuk validasi performa model.
+```{r error=F, warning=F, message=F}
+ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
+ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=28)
+
 train.prop <- floor(nrow(ihsg.imputed)*0.8)
 test.prop <- nrow(ihsg.imputed)-train.prop
 
@@ -38,28 +70,32 @@ ts.train <- head(ihsg.ts, train.prop)
 ts.test <- tail(ihsg.ts, test.prop)
 seasonal.train <- head(ihsg.seasonal, train.prop)
 seasonal.test <- tail(ihsg.seasonal, test.prop)
+```
 
-m = 30
+## Single Moving Average
+Menetapkan parameter m = 3 untuk moving average. 
+```{r error=F, warning=F, message=F}
+m = 3
+```
 
-#single moving average +  plot (berapa m optimal?)
+```{r error=F, warning=F, message=F}
 data.sma <- SMA(ts.train, n=m)
 data.fc <- c(NA,data.sma)
 data.gab <- data.frame(cbind(actual=c(ts.train,rep(NA,test.prop)),smoothing=c(data.sma,rep(NA,test.prop)),
                            forecast=c(data.fc,rep(data.fc[length(data.fc)],test.prop-1))))
 
-error.sma <- ts.train - data.fc[1:length(ts.train)]
-RMSE.sma <- sqrt(mean(error.sma[test.prop+1:length(ts.test)]^2))
-test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, test.prop)-ts.test)^2))
 
 ts.plot(data.gab[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "SMA of IHSG Adjusted Closing Price, m=30", ylim=c(3900,7050))
+        main= "SMA of IHSG Adjusted Closing Price, m=3", ylim=c(3900,7050))
 lines(data.gab[,2],col="green",lwd=2)
 lines(data.gab[,3],col="red",lwd=2)
 lines(ts.test)
 legend("bottomleft",c("Actual","Smoothed","Forecast"), lty=1,  
        col=c("black","green","red"), cex=0.7)
+```
 
-#double moving average + plot 
+## Double Moving Average
+```{r error=F, warning=F, message=F}
 dma <- SMA(data.sma, n = m)
 At <- 2*data.sma - dma
 Bt <- 2/(m-1)*(data.sma - dma)
@@ -80,37 +116,26 @@ data.gab2 <- data.frame(cbind(aktual = c(ts.train,rep(NA,test.prop+1)),
                               Bt = c(Bt,rep(NA,test.prop+1)),
                               forecast = c(data.fc2, f[-1])))
 
-error.dma = ts.train-data.fc2[1:length(ts.train)]
-RMSE.dma = sqrt(mean(error.dma[(m*2):length(ts.train)]^2))
-test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, test.prop)-ts.test)^2))
-RMSE.dma
-
 ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "DMA of IHSG Adjusted Closing Price m=30", ylim=c(3900,8000))
+        main= "DMA of IHSG Adjusted Closing Price m=3", ylim=c(3900,10000))
 lines(data.gab2[,3],col="green",lwd=2)
 lines(data.gab2[,6],col="red",lwd=2)
 lines(ts.test)
 legend("topleft",c("Actual","Smoothed","Forecast"), lty=1, 
        col=c("black","green","red"), cex=0.7)
+```
 
-# single exponential smoothing
+## Single Exponential Smoothing
+```{r error=F, warning=F, message=F}
 ses.1 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.5)
 ses.2 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.9)
 ses.opt <- HoltWinters(ts.train, gamma = F, beta = F) 
 
-ses.opt #optimum parameter for ses
-
-RMSE.ses1 <- sqrt(ses.1$SSE/length(ts.train))
-RMSE.ses2 <- sqrt(ses.2$SSE/length(ts.train))
-RMSE.sesopt <- sqrt(ses.opt$SSE/length(ts.train))
+ses.opt #optimum parameter for ses a = 0.9999414
 
 fc.ses1 <- predict(ses.1, n.ahead = test.prop)
 fc.ses2 <- predict(ses.2, n.ahead = test.prop)
 fc.sesopt <- predict(ses.opt, n.ahead = test.prop)
-
-test.RMSE.SES1 <- sqrt(mean((fc.ses1-ts.test)^2))
-test.RMSE.SES2 <- sqrt(mean((fc.ses2-ts.test)^2))
-test.RMSE.SESopt <- sqrt(mean((fc.sesopt-ts.test)^2))
 
 plot(ts.train,main="SES with Optimal parameter alpha=0.9999285",type="l",col="black",pch=12,
      ylab="IHSG Adjusted Closing Price", xlim=c(0,1916), ylim=c(3900,7050))
@@ -136,30 +161,23 @@ lines(fc.ses2,type="l",col="blue")
 lines(ts.test,type="l")
 legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
+```
 
-# double exponential smoothing
+## Double Exponential Smoothing
+```{r error=F, warning=F, message=F}
 des.1 <- HoltWinters(ts.train, alpha = 1, beta=0.024, gamma=F)
 des.2 <- HoltWinters(ts.train, alpha = 0.86, beta=0.01, gamma=F)
 des.opt <- HoltWinters(ts.train, gamma=F)
 
-#check the parameters of optimum des
-des.opt #a=1, b=0 for 80% train data
-
-RMSE.des1 <- sqrt(des.1$SSE/length(ts.train))
-RMSE.des2 <- sqrt(des.2$SSE/length(ts.train))
-RMSE.desopt <- sqrt(des.opt$SSE/length(ts.train))
+des.opt #optimum parameter for des a=1, b=0.01499698
 
 fc.des1 <- predict(des.1, n.ahead = test.prop)
 fc.des2 <- predict(des.2, n.ahead = test.prop)
 fc.desopt <- predict(des.opt, n.ahead = test.prop)
 
-test.RMSE.DES1 <- sqrt(mean((fc.des1-ts.test)^2))
-test.RMSE.DES2 <- sqrt(mean((fc.des2-ts.test)^2))
-test.RMSE.DESopt <- sqrt(mean((fc.desopt-ts.test)^2))
-
 plot(ts.train,main="DES with Optimal parameter alpha=1 beta=0",
      type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
-     xlim=c(0,1916),ylim=c(3900,7050))
+     xlim=c(0,1916),ylim=c(3900,8500))
 lines(des.opt$fitted[,2],type="l",col="red")
 lines(fc.desopt,type="l",col="blue")
 lines(ts.test,type="l")
@@ -183,12 +201,12 @@ lines(fc.des2,type="l",col="blue")
 lines(ts.test,type="l")
 legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
+```
 
-# holtwinter additive
+## Holtwinter Additive
+```{r error=F, warning=F, message=F}
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=test.prop)
-RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
-test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:test.prop]-ts.test)^2))
 predictHWA <- predict(HWA, n.ahead=test.prop)
 
 plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12,
@@ -199,12 +217,12 @@ lines(predictHWA,type="l",col="blue")
 lines(seasonal.test,type="l")
 legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
+```
 
-# holtwinter multiplicative
+## Holtwinter Multiplicative
+```{r error=F, warning=F, message=F}
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
 fc.HWM <- forecast(HWM, h=test.prop)
-RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
-test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:test.prop]-ts.test)^2))
 predictHWM <- predict(HWM, n.ahead=test.prop)
 
 plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12,
@@ -215,16 +233,48 @@ lines(predictHWM,type="l",col="blue")
 lines(seasonal.test,type="l")
 legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1,cex=0.7)
+```
 
-# comparing RMSE of the train dataset
+## Membandingkan nilai RMSE dari data training
+```{r error=F, warning=F, message=F}
+error.sma <- ts.train - data.fc[1:length(ts.train)]
+RMSE.sma <- sqrt(mean(error.sma[test.prop+1:length(ts.test)]^2))
+error.dma = ts.train-data.fc2[1:length(ts.train)]
+RMSE.dma = sqrt(mean(error.dma[(m*2):length(ts.train)]^2))
+
+RMSE.ses1 <- sqrt(ses.1$SSE/length(ts.train))
+RMSE.ses2 <- sqrt(ses.2$SSE/length(ts.train))
+RMSE.sesopt <- sqrt(ses.opt$SSE/length(ts.train))
+RMSE.des1 <- sqrt(des.1$SSE/length(ts.train))
+RMSE.des2 <- sqrt(des.2$SSE/length(ts.train))
+RMSE.desopt <- sqrt(des.opt$SSE/length(ts.train))
+
+RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
+RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
+
 err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                            "DES 1", "DES 2", "DES opt",
                            "HW Additive", "HW Multiplicative"),
                   RMSE=c(RMSE.sma, RMSE.dma, RMSE.ses1, RMSE.ses2, RMSE.sesopt,
                          RMSE.des1, RMSE.des2, RMSE.desopt, RMSE.HWA, RMSE.HWM))
-View(err)
+kable(err)
+```
 
-# comparing RMSE of the test dataset
+## Membandingkan nilai RMSE dari data testing
+```{r error=F, warning=F, message=F}
+test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, test.prop)-ts.test)^2))
+test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, test.prop)-ts.test)^2))
+
+test.RMSE.SES1 <- sqrt(mean((fc.ses1-ts.test)^2))
+test.RMSE.SES2 <- sqrt(mean((fc.ses2-ts.test)^2))
+test.RMSE.SESopt <- sqrt(mean((fc.sesopt-ts.test)^2))
+test.RMSE.DES1 <- sqrt(mean((fc.des1-ts.test)^2))
+test.RMSE.DES2 <- sqrt(mean((fc.des2-ts.test)^2))
+test.RMSE.DESopt <- sqrt(mean((fc.desopt-ts.test)^2))
+
+test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:test.prop]-ts.test)^2))
+test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:test.prop]-ts.test)^2))
+
 test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                                 "DES 1", "DES 2", "DES opt",
                                 "HW Additive","HW Multiplicative"),
@@ -232,9 +282,11 @@ test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                               test.RMSE.SES1, test.RMSE.SES2, test.RMSE.SESopt, 
                               test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt,
                               test.RMSE.HWA, test.RMSE.HWM))
-View(test.err)
+kable(test.err)
+```
 
-# comparing MAPE
+## Membandingkan nilai MAPE dari data testing
+```{r error=F, warning=F, message=F}
 MAPE.sma <- mean(abs((ts.test-tail(data.gab$forecast, test.prop))/ts.test))*100
 MAPE.dma <- mean(abs((ts.test-tail(data.gab2$forecast, test.prop))/ts.test))*100
 
@@ -256,5 +308,10 @@ MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
                           MAPE.ses1, MAPE.ses2, MAPE.sesopt, 
                           MAPE.des1, MAPE.des2, MAPE.desopt,
                           MAPE.HWA, MAPE.HWM))
-View(MAPE)
+kable(MAPE)
+```
 
+## Kesimpulan
+Berdasarkan nilai RMSE dan MAPE dari data testing, terlihat bahwa metode pemulusan HoltWinter Seasonal (terutama Additive) merupakan metode pemulusan yang paling baik dalam melakukan peramalan Adjusted Closing Price IHSG periode 1 Januari 2017 hingga 31 Maret 2022.  
+
+## Daftar Pustaka

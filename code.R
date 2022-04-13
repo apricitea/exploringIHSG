@@ -87,7 +87,6 @@ legend("topleft",c("Actual","Smoothed","Forecast"), lty=1,
 # period = 7
 # period = 30
 period = 365
-# duh gue laper
 
 # double moving average
 dma <- SMA(data.sma, n = period)
