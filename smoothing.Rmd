@@ -1,7 +1,7 @@
 ---
 title: "Pemulusan Harga Adjusted Closing IHSG Periode 1 Januari 2017 - 31 Maret 2022"
 author: "Kelompok 14 - MPDW Genap 21/22"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +15,16 @@ knitr::opts_chunk$set(echo = TRUE)
 - G14190047 Alvin Christian
 - G14190071 Muhammad Hadyan Rizki
 
-# Preprocessing Data
+# IHSG
+Indeks Harga Saham Gabungan (IHSG) merupakan catatan-catatan atas perubahan maupun pergerakan harga saham sejak mulai pertama kali beredar sampai pada suatu saat tertentu. Ada beberapa faktor yang mempengaruhi IHSG, salah satunya adalah faktor makroekonomi seperti tingkat inflasi, nilai tukar rupiah, tingkat suku bunga dan lain-lain (Krisna dan Wirawati 2013).
+
+Indeks Harga Saham Gabungan (IHSG) merupakan suatu nilai untuk mengukur kinerja seluruh saham. IHSG mencerminkan perkembangan pasar secara keseluruhan. Jika IHSG mengalami kenaikan dari hari kemarin maka beberapa saham yang berada pada bursa efek mengalami kenaikan. Oleh karena itu, peramalan harga akan sangat bermanfaat untuk para investor sehingga mereka dapat mengetahui prospek investasi saham di masa yang akan datang (Afittia 2018).
+
+Dataset yang akan digunakan merupakan dataset IHSG dari tanggal 1 Januari 2017 hingga 31 Maret 2022 dengan jumlah 1.916 amatan. Karena terdapat banyak missing value (tanggal merah dan akhir pekan), maka perlu dilakukan imputasi.
+
+Harga saham yang akan diamati adalah Adjusted Closing Price (harga closing yang sudah disesuaikan). Harga closing hanya menyatakan harga terakhir ketika pasar saham ditutup. Sedangkan harga closing yang telah disesuaikan mempertimbangkan faktor lain seperti dividen, stock splits, dan penawaran saham baru sehingga bisa menggambarkan nilai saham dengan lebih baik. 
+
+# Praproses Data
 
 ## Import Library dan Dataset
 Mengimport libraries yang akan digunakan
@@ -36,19 +45,24 @@ data$Date <- as.Date(rownames(data))
 fulldates <- data.frame(Date=seq(as.Date("2017-01-01"), as.Date("2022-03-31"), by="days"))
 ihsg <- merge(fulldates,data,by="Date",all.x=T)
 
-kable(head(ihsg,10), caption="First 10 rows of IHSG daily prices")
+kable(head(ihsg,10), caption="10 baris pertama Harga harian IHSG")
 ```
 
 Dari 10 data pertama, dapat dilihat bahwa terdapat beberapa missing values. Pasar Saham tidak dibuka pada hari sabtu-minggu dan tanggal merah, sehingga dapat dipastikan akan terdapat missing value tiap minggunya. Maka akan dilakukan interpolasi spline untuk mengatasi missing value tersebut.
 
 ## Imputasi Missing Values
+Berdasarkan hasil uji modified time-series model, ditemukan bahwa bulan April dan Desember memiliki pengaruh positif dan signifikan terhadap return bulanan pasar, dan hal ini menunjukkan adanya pola seasonal bulanan yang terjadi selama periode Januari 2002 hingga Desember 2011 di Bursa Efek Indonesia (Perwitasari 2012).
+
+Data yang digunakan adalah data univariate. Biasanya data univariate menggunakan linear interpolation untuk proses imputasi, namun data tersebut merupakan data musiman. linear interpolation hanya bisa digunakan untuk data yang bersifat non-musiman (Hyndman dan Athanasopoulos 2013). Maka dari itu, imputasi data yang cocok digunakan untuk data IHSG adalah spline interpolation, Rumus spline interpolation sebagai berikut.
+
+![](formula/spline.jpeg)
 
 ```{r error=F, warning=F, message=F}
 ihsg.imputed <- na_interpolation(ihsg, option="spline")
 ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
 ```
 
-Dapat kita lihat bahwa imputasi tidak mengubah tren dari harga Adjusted Closing Price. Mari kita coba amati plot time series dari Adjusted Closing Price harian IHSG.
+Dapat kita lihat bahwa imputasi tidak mengubah tren dari harga Adjusted Closing Price IHSG. Mari kita coba amati plot time series dari Adjusted Closing Price harian IHSG.
 
 ## Eksplorasi Plot Deret Waktu
 
@@ -78,6 +92,10 @@ seasonal.test <- tail(ihsg.seasonal, test.prop)
 Menurut Makridakis, Wheelwright dan McGee (1995) Single Moving Average (SMA) atau rata-rata bergerak tunggal adalah nilai rata-rata yang tidak tertimbang dari n data sebelumnya atau dengan kata lain sebuah teknik yang merata-ratakan sebuah angka dari nilai aktual terbaru, diperbaharui sebagai nilai-nilai baru yang tersedia.
 
 Double Moving Average (DMA) adalah metode dimana satu kelompok rata-rata bergerak dihitung, dan kemudian kelompok kedua dihitung rata-rata bergerak hasil pada kelompok pertama (Hanke et al. 2003).
+
+Rumus perhitungan Moving Average adalah sebagai berikut:
+
+![](formula/movingaverage.jpeg)
 
 Berdasarkan penelitian yang dilakukan oleh Hadi et al. (2021) perbandingan parameter N untuk peramalan saham BBRI dengan metode Single Moving Average (SMA) menggunakan n = 3, 5, 7, 9 dan 11. Hasil dari penelitian tersebut menunjukkan bahwa metode SMA dengan n = 3 memberikan nilai MAPE paling kecil diantara nilai parameter n yang lain. Oleh karena itu, kita akan menggunakan n=3 pada metode SMA
 
@@ -143,6 +161,10 @@ Double Exponential Smoothing (DES) adalah metode yang digunakan ketika data menu
 
 
 ## Single Exponential Smoothing
+Nilai SES dihitung dengan:
+
+![](formula/ses.png)
+
 Menurut Indah (2021), metode peramalan IHSG dengan menggunakan metode Single Exponential Smoothing (SES) diperoleh tingkat kesalahan yang paling kecil dibanding metode lainnya yakni ketika alpha = 0.5. Sedangkan menurut Siregar (2016), alpha optimum untuk meramal IHSG menggunakan metode SES yaitu ketika alpha = 0.9.
 
 ```{r error=F, warning=F, message=F}
@@ -183,6 +205,11 @@ legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
 ```
 
 ## Double Exponential Smoothing
+DES dihitung dengan:
+
+![](formula/des.jpeg)
+
+
 Pada metode Double Exponential Smoothing (DES) diperoleh nilai alpha = 1 dan beta = 0.02380527 sebagai nilai konstanta smoothing untuk estimasi level dan trend yang optimal sehingga dapat menghasilkan plot data model yang berhimpitan dengan data observasi (Slamet, Subanti, dan Susanto 2020). Menurut Purnamasari dan Sudirman (2019) model peramalan IHSG dengan menggunakan metode DES untuk alpha = 0.86 dan beta = 0.01 menunjukkan adanya kecenderungan trend naik, dengan nilai MAPE di bawah 3%.
 
 ```{r error=F, warning=F, message=F}
@@ -224,13 +251,14 @@ legend("topleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
 ```
 
-# Holtwinter Seasonal
+# Holt-Winters Seasonal
 Holt-Winters atau Triple Exponential Smoothing adalah metode yang digunakan untuk data yang menunjukkan trend dan pengaruh musiman (Kalekar 2004). Mengatasi pengaruh musiman diperlukan parameter  ketiga (gamma).  Berdasarkan tipe pengaruh musiman, metode Holt-Winters dapat dikelompokkan menjadi 2, yaitu:
 - Multiplicative seasonal model
 - Additive seasonal model
 
 
-## Holtwinter Additive
+## Holt-Winters Additive
+![](formula/hwa.png)
 ```{r error=F, warning=F, message=F}
 HWA <- HoltWinters(seasonal.train, seasonal = "additive")
 fc.HWA <- forecast(HWA, h=test.prop)
@@ -246,7 +274,8 @@ legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1, cex=0.7)
 ```
 
-## Holtwinter Multiplicative
+## Holt-Winters Multiplicative
+![](formula/hwm.png)
 ```{r error=F, warning=F, message=F}
 HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
 fc.HWM <- forecast(HWM, h=test.prop)
@@ -262,34 +291,16 @@ legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
        col=c("black","red","blue"),lty=1,cex=0.7)
 ```
 
-# Metrik untuk mengukur akurasi peramalan
-MAPE (Mean Absolute Percentage Error) untuk ukuran kesalahan relatif yang menyatakan persentase kesalahan hasil peramalan terhadap permintaan aktual selama periode tertentu yang akan memberikan informasi persentase kesalahan terlalu tinggi atau rendah (Gaspersz 1998). MSE (Mean Square Error) dihitung dengan menjumlahkan kuadrat semua kesalahan peramalan pada setiap periode dan membaginya dengan jumlah periode peramalan (Vincent 2008). MAE (Mean Absolute Error) untuk ukuran mutlak kesalahan peramalan pada setiap periode yang dibagi dengan jumlah periode peramalan (Qi et al. 2020).
+# Ukuran kesalahan untuk mengukur akurasi peramalan
+MAPE (Mean Absolute Percentage Error) untuk ukuran kesalahan relatif yang menyatakan persentase kesalahan hasil peramalan terhadap permintaan aktual selama periode tertentu yang akan memberikan informasi persentase kesalahan terlalu tinggi atau rendah (Gaspersz 1998). MSE (Mean Square Error) dihitung dengan menjumlahkan kuadrat semua kesalahan peramalan pada setiap periode dan membaginya dengan jumlah periode peramalan (Vincent 2008).
 
+RMSE dihitung dengan formula:
 
-## Membandingkan nilai RMSE dari data training
-```{r error=F, warning=F, message=F}
-error.sma <- ts.train - data.fc[1:length(ts.train)]
-RMSE.sma <- sqrt(mean(error.sma[test.prop+1:length(ts.test)]^2))
-error.dma = ts.train-data.fc2[1:length(ts.train)]
-RMSE.dma = sqrt(mean(error.dma[(m*2):length(ts.train)]^2))
+![](formula/rmse.jpeg)
 
-RMSE.ses1 <- sqrt(ses.1$SSE/length(ts.train))
-RMSE.ses2 <- sqrt(ses.2$SSE/length(ts.train))
-RMSE.sesopt <- sqrt(ses.opt$SSE/length(ts.train))
-RMSE.des1 <- sqrt(des.1$SSE/length(ts.train))
-RMSE.des2 <- sqrt(des.2$SSE/length(ts.train))
-RMSE.desopt <- sqrt(des.opt$SSE/length(ts.train))
+MAPE dihitung dengan formula:
 
-RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
-RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
-
-err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                           "DES 1", "DES 2", "DES opt",
-                           "HW Additive", "HW Multiplicative"),
-                  RMSE=c(RMSE.sma, RMSE.dma, RMSE.ses1, RMSE.ses2, RMSE.sesopt,
-                         RMSE.des1, RMSE.des2, RMSE.desopt, RMSE.HWA, RMSE.HWM))
-kable(err)
-```
+![](formula/mape.jpg)
 
 ## Membandingkan nilai RMSE dari data testing
 ```{r error=F, warning=F, message=F}
@@ -343,7 +354,7 @@ kable(MAPE)
 ```
 
 # Kesimpulan
-Berdasarkan nilai RMSE dan MAPE dari data testing, terlihat bahwa metode pemulusan HoltWinter Seasonal (terutama Additive) merupakan metode pemulusan yang paling baik dalam melakukan peramalan Adjusted Closing Price IHSG periode 1 Januari 2017 hingga 31 Maret 2022.  
+Berdasarkan nilai RMSE dan MAPE dari data testing, terlihat bahwa metode pemulusan Holt-Winters Seasonal (terutama Additive) merupakan metode pemulusan yang paling baik dalam melakukan peramalan Adjusted Closing Price IHSG periode 1 Januari 2017 hingga 31 Maret 2022. Hal ini juga mendukung dugaan di awal bahwa data time series harga Adjusted Closing IHSG harian dalam periode tersebut memiliki pola seasonal.
 
 # Daftar Pustaka
 Afittia W. 2018. Penerapan Metode Eksponensial Smoothing untuk Meramalkan Indeks Harga Saham Gabungan pada Tahun 2018-2020. Medan (ID) : Universitas Sumatera Utara.
@@ -358,6 +369,8 @@ Hadi R, Budiman I, Abadi F, Farmandi A, Muliadi. 2021. OPTIMIZATION OF N VALUE O
 
 Hanke, J.E., Wichern, D.W., Reitsch, A.G. 2003. Peramalan Bisnis. Edisi ke-7. penerjemah; Anantanur, Devy. Jakarta: PT Prenhallindo. Terjemahan dari: Business Forecasting 7th Edition.
 
+Hyndman, R. J., & Athanasopoulos, G. (2013). Forecasting: principles and practice. Otexts. 
+
 Indah N. 2021. Aplikasi metode moving average dan smoothing exponential pada proyeksi harga saham (studi kasus pada harga saham kaef). Jurnal MABIS. 12(2) : 186-196.
 
 Kalekar SP. 2004. Time series Forecasting using Holt-Winters Exponential Smoothing. Mumbai (IN): Kanwal Rekhi School of Information Technology.
@@ -366,9 +379,11 @@ Krisna AAGD, Wirawati NGP. 2013. Pengaruh inflasi, nilai tukar rupiah, suku bung
 
 Makridakis, Spyros, Wheelwright SC, McGee VE, McGee. 1999. Metode dan Aplikasi Peramalan (2th ed) Volume 1. Jakarta (ID) : Erlangga.
 
-Purnamasari I, Sudirman. 2019. Peramalan indeks harga saham gabungan (IHSG) menggunakan metode pemulusan eksponensial ganda dari holt. Prosiding Seminar Nasional Matematika, Statistika, dan Aplikasinya; 2019 Okt 5; Samarinda. Samarinda (ID) : Universitas Mulawarman. hlm 150-157.
+Montgomery DC, Jennings CL, Kulahci M. 2015. Time Series Analysis And Forecasting (Second Edition). New Jersey (US): John Wiley & Sons, Inc.
 
-Qi J, Du J, Siniscalchi SM, Ma X, Lee CH. 2020. On Mean Absolute Error for Deep Neural Network Based Vector-to-Vector Regression. IEEE Signal Process Lett. 27:1485–1489. doi:10.1109/LSP.2020.3016837.
+Perwitasari AD. 2012. Investigasi Pola Return Seasonal Pada Bursa Efek Indonesia (Studi Pada IHSG, Indeks Saham Sektoral dan Indeks Saham Unggulan (LQ45)). [skripsi]. Malang (ID) : Universitas Brawijaya. 
+
+Purnamasari I, Sudirman. 2019. Peramalan indeks harga saham gabungan (IHSG) menggunakan metode pemulusan eksponensial ganda dari holt. Prosiding Seminar Nasional Matematika, Statistika, dan Aplikasinya; 2019 Okt 5; Samarinda. Samarinda (ID) : Universitas Mulawarman. hlm 150-157.
 
 Siregar RA. 2016. Pembangunan aplikasi berbasis WEB untuk peramalan harga saham dengan metode Moving Average, Exponential Smoothing, dan Artificial Neural Network. [skripsi]. Surabaya (ID) : Institut Teknologi Sepuluh November.
 

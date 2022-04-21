@@ -1,9 +1,12 @@
 #import library
 library(imputeTS)
-library(knitr)
 library(quantmod)
 library(aTSA)
+library(TSA)
 library(forecast)
+library(tseries)
+library(MASS)
+library(lmtest)
 
 #import data
 start <- as.POSIXct("2017-01-01")
@@ -11,7 +14,6 @@ end <- as.POSIXct("2022-03-31")
 getSymbols(Symbols = "^JKSE",src = "yahoo", from = start, to = end)
 data <- as.data.frame(JKSE)
 data$Date <- as.Date(rownames(data))
-View(data)
 
 #export as csv
 #write.csv(data, file="E:/Github/exploringIHSG/IHSG.csv", row.names = T)
@@ -19,242 +21,190 @@ View(data)
 #menambahkan tanggal yang kosong di dataset (sabtu-minggu dan tanggal merah)
 fulldates <- data.frame(Date=seq(as.Date("2017-01-01"), as.Date("2022-03-31"), by="days"))
 ihsg <- merge(fulldates,data,by="Date",all.x=T)
-View(ihsg)
 
 #imputasi missing value
-ihsg.imputed <- na_interpolation(ihsg)
+ihsg.imputed <- na_interpolation(ihsg, option="spline")
 ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
-View(ihsg.imputed)
 
 #bikin data time series + seasonal ts
 ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
-ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=28) #belum tau/yakin
+ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=7) #belum tau/yakin
 
-#train-test split 
+#train-test split
 train.prop <- floor(nrow(ihsg.imputed)*0.8)
 test.prop <- nrow(ihsg.imputed)-train.prop
 
-ts.train <- head(ihsg.ts, train.prop)
-ts.test <- tail(ihsg.ts, test.prop)
+ihsg.train <- head(ihsg.ts, train.prop)
+ihsg.test <- tail(ihsg.ts, test.prop)
 seasonal.train <- head(ihsg.seasonal, train.prop)
 seasonal.test <- tail(ihsg.seasonal, test.prop)
 
-m = 30
+#plot time series
+plot(ihsg.imputed$JKSE.Adjusted~ihsg.imputed$Date,
+     type = "l", xlab = "Tahun", main = "IHSG Adjusted Closing Price Overtime",
+     ylab = "Harga Adjusted Closing IHSG")
 
-#single moving average +  plot (berapa m optimal?)
-data.sma <- SMA(ts.train, n=m)
-data.fc <- c(NA,data.sma)
-data.gab <- data.frame(cbind(actual=c(ts.train,rep(NA,test.prop)),smoothing=c(data.sma,rep(NA,test.prop)),
-                           forecast=c(data.fc,rep(data.fc[length(data.fc)],test.prop-1))))
+#plot acf pacf
+acf(ihsg.ts, lag.max = 30 ,main = "Plot ACF IHSG Adjusted Closing Price")
+pacf(ihsg.ts, lag.max = 30, main = "Plot PACF IHSG Adjusted Closing Price") 
+#acf turun secara eksponensial, ga stasioner
 
-error.sma <- ts.train - data.fc[1:length(ts.train)]
-RMSE.sma <- sqrt(mean(error.sma[test.prop+1:length(ts.test)]^2))
-test.RMSE.SMA <- sqrt(mean((tail(data.gab$forecast, test.prop)-ts.test)^2))
+#uji formal adf
+adf.test(ihsg.ts) #kesimpulan: tidak stasioner
 
-ts.plot(data.gab[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "SMA of IHSG Adjusted Closing Price, m=30", ylim=c(3900,7050))
-lines(data.gab[,2],col="green",lwd=2)
-lines(data.gab[,3],col="red",lwd=2)
-lines(ts.test)
-legend("bottomleft",c("Actual","Smoothed","Forecast"), lty=1,  
-       col=c("black","green","red"), cex=0.7)
+#differencing 1 kali
+ihsg.diff <- diff(ihsg.ts, 1)
+ts.plot(ihsg.diff)
 
-#double moving average + plot 
-dma <- SMA(data.sma, n = m)
-At <- 2*data.sma - dma
-Bt <- 2/(m-1)*(data.sma - dma)
-data.dma<- At+Bt
-data.fc2<- c(NA, data.dma)
+#plot acf pacf
+acf(ihsg.diff, lag.max = 30, 
+    main = "Plot ACF yang telah Differencing 1 kali")
+#cutoff pada lag ke-1 atau ke-3
+pacf(ihsg.diff, lag.max = 30, 
+     main = "Plot PACF yang telah Differencing 1 kali") 
+#cutoff pada lag ke-1 atu ke-3
 
-t = 1:test.prop+1
-f = c()
+#uji formal adf
+adf.test(ihsg.diff)
 
-for (i in t) {
-  f[i] = At[length(At)] + Bt[length(Bt)]*(i)
-}
+#menentukan ordo p, q, dan r
+eacf(ihsg.diff) #ARIMA(0,1,3) ARIMA(0,1,4) ARIMA(1,1,4) 
 
-data.gab2 <- data.frame(cbind(aktual = c(ts.train,rep(NA,test.prop+1)), 
-                              pemulusan1 = c(data.sma,rep(NA,test.prop+1)),
-                              pemulusan2 = c(data.dma, rep(NA,test.prop+1)),
-                              At = c(At, rep(NA,test.prop+1)), 
-                              Bt = c(Bt,rep(NA,test.prop+1)),
-                              forecast = c(data.fc2, f[-1])))
+#menentukan model terbaik
+ihsg.model1 <- Arima(ihsg.ts, order=c(0,1,3), method="ML")
+ihsg.model2 <- Arima(ihsg.ts, order=c(0,1,4), method="ML")
+ihsg.model3 <- Arima(ihsg.ts, order=c(1,1,4), method="ML")
+ihsg.model4 <- Arima(ihsg.ts, order=c(0,1,1), method="ML")
+ihsg.model1$aic; ihsg.model2$aic; ihsg.model3$aic; ihsg.model4$aic;
+ihsg.bestmodel <- ihsg.model4
+ihsg.residual <- ihsg.bestmodel$residuals
 
-error.dma = ts.train-data.fc2[1:length(ts.train)]
-RMSE.dma = sqrt(mean(error.dma[(m*2):length(ts.train)]^2))
-test.RMSE.DMA <- sqrt(mean((tail(data.gab2$forecast, test.prop)-ts.test)^2))
-RMSE.dma
+coeftest(ihsg.model1) 
+coeftest(ihsg.model2) 
+coeftest(ihsg.model3) 
+coeftest(ihsg.model4) 
 
-ts.plot(data.gab2[,1], xlab="Time Period ", ylab="IHSG Adjusted Closing Price",
-        main= "DMA of IHSG Adjusted Closing Price m=30", ylim=c(3900,8000))
-lines(data.gab2[,3],col="green",lwd=2)
-lines(data.gab2[,6],col="red",lwd=2)
-lines(ts.test)
-legend("topleft",c("Actual","Smoothed","Forecast"), lty=1, 
-       col=c("black","green","red"), cex=0.7)
+#uji diagnostik semuanya :)
+jarque.bera.test(ihsg.residual)
+#acf pacf
+acf(ihsg.residual)
+pacf(ihsg.residual)
+#autocorrelation
+Box.test(ihsg.residual, type="Ljung")
 
-# single exponential smoothing
-ses.1 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.5)
-ses.2 <- HoltWinters(ts.train, gamma = F, beta = F, alpha = 0.9)
-ses.opt <- HoltWinters(ts.train, gamma = F, beta = F) 
+#uji diagnostik
+#normality
+#qqplot
+qqnorm(ihsg.residual)
+qqline(ihsg.residual)
+#formal test
+jarque.bera.test(ihsg.residual)
+ks.test(ihsg.residual,"pnorm")
+#acf pacf
+acf(ihsg.residual)
+pacf(ihsg.residual)
+#autocorrelation
+Box.test(ihsg.residual, type="Ljung")
 
-ses.opt #optimum parameter for ses
+#overfitting
+#akan dicoba ARIMA(3,0,2) dan (2,0,3)
+ihsg.overfitting1 <- Arima(ihsg.ts, order=c(1,1,3), method="ML")
+ihsg.overfitting1$aic; ihsg.bestmodel$aic
+#model ovterfitting ARIMA(3,0,2) memiliki AIC lebih besar,
+#maka overfitting tidak akan dilakukan
 
-RMSE.ses1 <- sqrt(ses.1$SSE/length(ts.train))
-RMSE.ses2 <- sqrt(ses.2$SSE/length(ts.train))
-RMSE.sesopt <- sqrt(ses.opt$SSE/length(ts.train))
 
-fc.ses1 <- predict(ses.1, n.ahead = test.prop)
-fc.ses2 <- predict(ses.2, n.ahead = test.prop)
-fc.sesopt <- predict(ses.opt, n.ahead = test.prop)
 
-test.RMSE.SES1 <- sqrt(mean((fc.ses1-ts.test)^2))
-test.RMSE.SES2 <- sqrt(mean((fc.ses2-ts.test)^2))
-test.RMSE.SESopt <- sqrt(mean((fc.sesopt-ts.test)^2))
+#forecasting
+ihsg.forecast <- forecast(Arima(ihsg.train, order=c(0,1,3), method="ML"), 
+                          h=test.prop)
+plot(ihsg.forecast)
+accuracy(ihsg.forecast$mean, ihsg.test)
 
-plot(ts.train,main="SES with Optimal parameter alpha=0.9999285",type="l",col="black",pch=12,
-     ylab="IHSG Adjusted Closing Price", xlim=c(0,1916), ylim=c(3900,7050))
-lines(ses.opt$fitted[,2],type="l",col="red")
-lines(fc.sesopt,type="l",col="blue")
-lines(ts.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+#SARIMA
+ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=7)
+ihsg.seasonal.diff <- diff(diff(ihsg.seasonal,1),7)
 
-plot(ts.train,main="SES with alpha=0.5",type="l",col="black",pch=12,
-     ylab="IHSG Adjusted Closing Price", xlim=c(0,1916), ylim=c(3900,7050))
-lines(ses.1$fitted[,2],type="l",col="red")
-lines(fc.ses1,type="l",col="blue")
-lines(ts.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+ts.plot(ihsg.seasonal.diff)
+adf.test(ihsg.seasonal.diff)
 
-plot(ts.train,main="SES with alpha=0.9",type="l",col="black",pch=12,
-     ylab="IHSG Adjusted Closing Price",
-     xlim=c(0,1916),ylim=c(3900,7050))
-lines(ses.2$fitted[,2],type="l",col="red")
-lines(fc.ses2,type="l",col="blue")
-lines(ts.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+#nentuin ordo
+par(mfrow=c(1,2))
+acf(ihsg.seasonal.diff, lag.max = 14, main="ACF lag max = 14") 
+acf(ihsg.seasonal.diff, lag.max = 210, main="ACF lag max = 1000") 
+#cutoff di lag ke-1 atau ke-3. selain itu komponen musiman di ACF cutoff 
+#di lag ke-14 (satu lag musiman)
+#MA(1) atau MA(3) non musiman
+pacf(ihsg.seasonal.diff, lag.max = 14, main="PACF lag max = 14")
+pacf(ihsg.seasonal.diff, lag.max = 210, main="PACF lag max = 1000")
+par(mfrow = c(1,1))
+#cutoff di lag ke-1 atau ke-4, tampak tail-off di lag musiman 
+#AR(1) atau AR(4) non musiman 
+#(terjadi penurunan namun secara perlahan).
+eacf(ihsg.seasonal.diff)
 
-# double exponential smoothing
-des.1 <- HoltWinters(ts.train, alpha = 1, beta=0.024, gamma=F)
-des.2 <- HoltWinters(ts.train, alpha = 0.86, beta=0.01, gamma=F)
-des.opt <- HoltWinters(ts.train, gamma=F)
+eacf(ihsg.diff)
+#EACF merekomendasikan model ARIMA(0,1,1), ARIMA(0,1,3), ARIMA(0,1,)
+#kandidat model 
 
-#check the parameters of optimum des
-des.opt #a=1, b=0 for 80% train data
+#ARIMA(0,1,3)(0,1,1)14
+ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=7)
+ihsg.bestmodel
 
-RMSE.des1 <- sqrt(des.1$SSE/length(ts.train))
-RMSE.des2 <- sqrt(des.2$SSE/length(ts.train))
-RMSE.desopt <- sqrt(des.opt$SSE/length(ts.train))
+#cek model
+ihsg.seasonal.model1 <- Arima(ihsg.seasonal, order=c(0,1,3), seasonal=c(0,1,1), method="ML")
+ihsg.seasonal.model2 <- Arima(ihsg.seasonal, order=c(0,1,4), seasonal=c(0,1,1), method="ML")
+ihsg.seasonal.model3 <- Arima(ihsg.seasonal, order=c(1,1,4), seasonal=c(0,1,1), method="ML")
+ihsg.seasonal.model4 <- Arima(ihsg.seasonal, order=c(0,1,1), seasonal=c(0,1,1), method="ML")
 
-fc.des1 <- predict(des.1, n.ahead = test.prop)
-fc.des2 <- predict(des.2, n.ahead = test.prop)
-fc.desopt <- predict(des.opt, n.ahead = test.prop)
+ihsg.seasonal.model1$aic; ihsg.seasonal.model2$aic; ihsg.seasonal.model3$aic; 
+ihsg.seasonal.model4$aic; 
+ihsg.model1$aic
+ihsg.seasona.bestmodel <- ihsg.seasonal.model1
+ihsg.seasonal.residual <- ihsg.seasonal.bestmodel$residuals
 
-test.RMSE.DES1 <- sqrt(mean((fc.des1-ts.test)^2))
-test.RMSE.DES2 <- sqrt(mean((fc.des2-ts.test)^2))
-test.RMSE.DESopt <- sqrt(mean((fc.desopt-ts.test)^2))
+#uji diagnostik
+#normality
+#qqplot
+qqnorm(ihsg.seasonal.residual)
+qqline(ihsg.seasonal.residual)
+#formal test
+jarque.bera.test(ihsg.seasonal.residual)
+#acf pacf
+acf(ihsg.seasonal.residual)
+pacf(ihsg.seasonal.residual)
+#autocorrelation
+Box.test(ihsg.seasonal.residual, type="Ljung")
 
-plot(ts.train,main="DES with Optimal parameter alpha=1 beta=0",
-     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
-     xlim=c(0,1916),ylim=c(3900,7050))
-lines(des.opt$fitted[,2],type="l",col="red")
-lines(fc.desopt,type="l",col="blue")
-lines(ts.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+#coba boxcox
 
-plot(ts.train,main="DES with alpha=1 beta=0.024",
-     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
-     xlim=c(0,1916),ylim=c(3900,8500))
-lines(des.1$fitted[,2],type="l",col="red")
-lines(fc.des1,type="l",col="blue")
-lines(ts.test,type="l")
-legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+bc <- boxcox(ihsg.ts ~ 1)
+(lambda <- bc$x[which.max(bc$y)])
 
-plot(ts.train,main="DES with alpha=0.86 beta=0.01",
-     type="l",col="black",pch=12, ylab="IHSG Adjusted Closing Price",
-     xlim=c(0,1916),ylim=c(3900,8500))
-lines(des.2$fitted[,2],type="l",col="red")
-lines(fc.des2,type="l",col="blue")
-lines(ts.test,type="l")
-legend("topleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+ihsg.ts <- ihsg.ts^(lambda)
+ts.plot(ihsg.ts)
 
-# holtwinter additive
-HWA <- HoltWinters(seasonal.train, seasonal = "additive")
-fc.HWA <- forecast(HWA, h=test.prop)
-RMSE.HWA <- sqrt(HWA$SSE/length(seasonal.train))
-test.RMSE.HWA <- sqrt(mean((fc.HWA$mean[1:test.prop]-ts.test)^2))
-predictHWA <- predict(HWA, n.ahead=test.prop)
+auto.arima(ihsg.ts)
 
-plot(seasonal.train,main="Holt Winter Additive",type="l",col="black",pch=12,
-     ylim=c(3900,7050),xlim=c(0,70), 
-     ylab="IHSG Adjusted Closing Price (per seasonal)")
-lines(HWA$fitted[,2],type="l",col="red")
-lines(predictHWA,type="l",col="blue")
-lines(seasonal.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1, cex=0.7)
+ihsg.model1 <- Arima(ihsg.ts, order=c(0,1,3), method="ML")
+ihsg.model2 <- Arima(ihsg.ts, order=c(0,1,4), method="ML")
+ihsg.model3 <- Arima(ihsg.ts, order=c(1,1,4), method="ML")
+ihsg.model1$aic; ihsg.model2$aic; ihsg.model3$aic;
+ihsg.bestmodel <- ihsg.model1
+ihsg.residual <- ihsg.bestmodel$residuals
 
-# holtwinter multiplicative
-HWM <- HoltWinters(seasonal.train, seasonal = "multiplicative")
-fc.HWM <- forecast(HWM, h=test.prop)
-RMSE.HWM <- sqrt(HWM$SSE/length(seasonal.train))
-test.RMSE.HWM <- sqrt(mean((fc.HWM$mean[1:test.prop]-ts.test)^2))
-predictHWM <- predict(HWM, n.ahead=test.prop)
+ihsg.model1
+coeftest(ihsg.model1)
+#forecasting
+ihsg.forecast <- forecast(Arima(ihsg.train, order=c(0,1,3), method="ML"), 
+                          h=test.prop)
+plot(ihsg.forecast)
+ihsg.forecast$mean
+lines(ihsg.test)
+accuracy(ihsg.forecast$mean, ihsg.test)
 
-plot(seasonal.train,main="Holt Winter Multiplicative",type="l",col="black",pch=12,
-     ylim=c(3900,7050),xlim=c(0,70), 
-     ylab="IHSG Adjusted Closing Price (per seasonal)")
-lines(HWM$fitted[,2],type="l",col="red")
-lines(predictHWM,type="l",col="blue")
-lines(seasonal.test,type="l")
-legend("bottomleft",c("Actual Data","Fitted Data","Forecast"),
-       col=c("black","red","blue"),lty=1,cex=0.7)
-
-# comparing RMSE of the train dataset
-err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                           "DES 1", "DES 2", "DES opt",
-                           "HW Additive", "HW Multiplicative"),
-                  RMSE=c(RMSE.sma, RMSE.dma, RMSE.ses1, RMSE.ses2, RMSE.sesopt,
-                         RMSE.des1, RMSE.des2, RMSE.desopt, RMSE.HWA, RMSE.HWM))
-View(err)
-
-# comparing RMSE of the test dataset
-test.err <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                                "DES 1", "DES 2", "DES opt",
-                                "HW Additive","HW Multiplicative"),
-                       RMSE=c(test.RMSE.SMA, test.RMSE.DMA, 
-                              test.RMSE.SES1, test.RMSE.SES2, test.RMSE.SESopt, 
-                              test.RMSE.DES1, test.RMSE.DES2, test.RMSE.DESopt,
-                              test.RMSE.HWA, test.RMSE.HWM))
-View(test.err)
-
-# comparing MAPE
-MAPE.sma <- mean(abs((ts.test-tail(data.gab$forecast, test.prop))/ts.test))*100
-MAPE.dma <- mean(abs((ts.test-tail(data.gab2$forecast, test.prop))/ts.test))*100
-
-MAPE.ses1 <- mean(abs((fc.ses1 - ts.test)/ts.test)) * 100
-MAPE.ses2 <- mean(abs((fc.ses2 - ts.test)/ts.test)) * 100
-MAPE.sesopt <- mean(abs((fc.sesopt - ts.test)/ts.test)) * 100
-
-MAPE.des1 <- mean(abs((fc.des1 - ts.test)/ts.test)) * 100
-MAPE.des2 <- mean(abs((fc.des2 - ts.test)/ts.test)) * 100
-MAPE.desopt <- mean(abs((fc.desopt - ts.test)/ts.test)) * 100
-
-MAPE.HWA <- mean(abs((fc.HWA$mean - seasonal.test)/seasonal.test)) * 100
-MAPE.HWM <- mean(abs((fc.HWM$mean - seasonal.test)/seasonal.test)) * 100
-
-MAPE <- data.frame(metode=c("SMA","DMA","SES 1","SES 2","SES opt",
-                            "DES 1", "DES 2", "DES opt",
-                            "HW Additive","HW Multiplicative"),
-                   MAPE=c(MAPE.sma, MAPE.dma, 
-                          MAPE.ses1, MAPE.ses2, MAPE.sesopt, 
-                          MAPE.des1, MAPE.des2, MAPE.desopt,
-                          MAPE.HWA, MAPE.HWM))
-View(MAPE)
-
+ihsg.seasonal.forecast <- forecast(Arima(seasonal.train, order=c(0,1,3), seasonal=c(0,1,1), method="ML"), 
+                          h=test.prop)
+plot(ihsg.seasonal.forecast)
+lines(seasonal.test)
+accuracy(ihsg.seasonal.forecast$mean, seasonal.test)
