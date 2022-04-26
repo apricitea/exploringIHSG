@@ -352,7 +352,7 @@ Box.test(ihsg.tfed.residual4, type="Ljung")
 
 Berdasarkan hasil Ljung-Box test, terlihat bahwa data telah memenuhi asumsi tidak adanya autokorelasi.
 
-Karena hasil uji diagnostik pada data yang telah ditransformasi juga tidak lolos asumsi normalitas sisaan maka tidak bisa dilakukan peramalan.
+Hasil uji diagnostik pada data yang telah ditransformasi juga tidak lolos asumsi normalitas sisaan. Maka transofrmasi data tidak menyelesaikan masalah asumsi normalitas yang tidak terpenuhi.
 
 # Sesonal ARIMA (SARIMA)
 Model SARIMA adalah model time series dengan pola musiman (seasonal). Model ini dinotasikan dengan ARIMA (p,d,q)(P,D,Q)s. Menurut Halim dan Bisono (2008), model SARIMA dapat juga dituliskan menggunakan lag operator sebagai berikut. 
@@ -375,14 +375,14 @@ Karena pada bagian sebelumnya kita telah menyadari bahwa perlu dilakukan differe
 
 ```{r error=F, warning=F, message=F}
 par(mfrow=c(1,2))
-acf(ihsg.seasonal.diff, lag.max = 14, main="ACF lag max = 14") 
-acf(ihsg.seasonal.diff, lag.max = 210, main="ACF lag max = 210") 
-pacf(ihsg.seasonal.diff, lag.max = 14, main="PACF lag max = 14")
-pacf(ihsg.seasonal.diff, lag.max = 210, main="PACF lag max = 210")
+acf(ihsg.seasonal.diff, lag.max = 7, main="ACF lag max = 7") 
+acf(ihsg.seasonal.diff, lag.max = 28, main="ACF lag max = 28") 
+pacf(ihsg.seasonal.diff, lag.max = 7, main="PACF lag max = 7")
+pacf(ihsg.seasonal.diff, lag.max = 28, main="PACF lag max = 28")
 par(mfrow = c(1,1))
 ```
 
-Berdasarkan plot ACF terlihat Cutoff di lag ke-1 atau ke-3. selain itu komponen musiman di ACF cutoff di lag ke-365 (satu lag musiman). MA(1) atau MA(3) non musiman dan MA(1) musiman.
+Berdasarkan plot ACF terlihat Cutoff di lag ke-1 atau ke-3. selain itu komponen musiman di ACF cutoff di lag ke-7 (satu lag musiman). Maka akan digunakan MA(3) non musiman dan MA(1) musiman.
 
 Plot PACF menunjukkan cutoff di lag ke-1 atau ke-4 dan nilai PACF menurun pada lag musiman (namun secara perlahan) atau tail off, maka memperkuat dugaan bahwa model yang cocok merupakan MA(1) musiman.  
 
@@ -390,15 +390,14 @@ Plot PACF menunjukkan cutoff di lag ke-1 atau ke-4 dan nilai PACF menurun pada l
 eacf(ihsg.seasonal.diff)
 ```
 
-Hasil EACF menunjukkan bahwa beberapa model yang dapat digunakan adalah ARIMA(0,1,3)(0,1,1)365, ARIMA(0,1,4)(0,1,1)365, dan ARIMA(1,1,4)(0,1,1)365.   
+Hasil EACF menunjukkan bahwa beberapa model yang dapat digunakan adalah ARIMA(0,1,3)(0,1,1)7, ARIMA(0,1,4)(0,1,1)7, dan ARIMA(1,1,4)(0,1,1)7.   
 
 ## Pemodelan
 ```{r error=F, warning=F, message=F}
 ihsg.seasonal.model1 <- Arima(ihsg.seasonal, order=c(0,1,3), seasonal=c(0,1,1), method="ML")
 ihsg.seasonal.model2 <- Arima(ihsg.seasonal, order=c(0,1,4), seasonal=c(0,1,1), method="ML")
 ihsg.seasonal.model3 <- Arima(ihsg.seasonal, order=c(1,1,4), seasonal=c(0,1,1), method="ML")
-ihsg.seasonal.model4 <- Arima(ihsg.seasonal, order=c(0,1,1), seasonal=c(0,1,1), method="ML")
-ihsg.seasonal.model1$aic; ihsg.seasonal.model2$aic; ihsg.seasonal.model3$aic; ihsg.seasonal.model4$aic
+ihsg.seasonal.model1$aic; ihsg.seasonal.model2$aic; ihsg.seasonal.model3$aic
 ```
 
 Berdasarkan model SARIMA yang dibuat, terlihat bahwa nilai AIC paling kecil adalah model ARIMA(0,1,3)(0,1,1)7
@@ -408,16 +407,14 @@ Akan diperiksa koefisien dari tiap model
 coeftest(ihsg.seasonal.model1) 
 coeftest(ihsg.seasonal.model2) 
 coeftest(ihsg.seasonal.model3) 
-coeftest(ihsg.seasonal.model4) 
 ```
-Kita dapat lihat bahwa seluruh koefisien ARIMA(0,1,1)(0,1,1)7 signifikan sedangkan yang lain hanya sebagian yang signifikan. 
+Kita dapat lihat bahwa dari ketiga model tidak ada yang seluruh koefisiennya signifikan
 
 ## Uji Diagnostik
 ```{r error=F, warning=F, message=F}
 ihsg.seasonal.residual1 <- ihsg.seasonal.model1$residuals
 ihsg.seasonal.residual2 <- ihsg.seasonal.model2$residuals
 ihsg.seasonal.residual3 <- ihsg.seasonal.model3$residuals
-ihsg.seasonal.residual4 <- ihsg.seasonal.model4$residuals
 ```
 
 ## Normalitas
@@ -433,10 +430,6 @@ jarque.bera.test(ihsg.seasonal.residual2)
 qqnorm(ihsg.seasonal.residual3)
 qqline(ihsg.seasonal.residual3)
 jarque.bera.test(ihsg.seasonal.residual3)
-
-qqnorm(ihsg.seasonal.residual4)
-qqline(ihsg.seasonal.residual4)
-jarque.bera.test(ihsg.seasonal.residual4)
 ```
 
 Berdasarkan qq-plot dan uji formal Jarque Bera, sisaan cenderung tidak menyebar normal sehingga kembali kita temui bahwa asumsi normalitas tidak terpenuhi.
@@ -452,9 +445,6 @@ pacf(ihsg.seasonal.residual2)
 
 acf(ihsg.seasonal.residual3)
 pacf(ihsg.seasonal.residual3)
-
-acf(ihsg.seasonal.residual4)
-pacf(ihsg.seasonal.residual4)
 ```
 
 Berdasarkan plot ACF dan PACF, terlihat bahwa nilai ACF maupun PACF tidak ada yang signifikan di lag awal, sehingga dapat disimpulkan bahwa asumsi kehomogenan ragam terpenuhi.
@@ -465,71 +455,48 @@ Berdasarkan plot ACF dan PACF, terlihat bahwa nilai ACF maupun PACF tidak ada ya
 Box.test(ihsg.seasonal.residual1, type="Ljung")
 Box.test(ihsg.seasonal.residual2, type="Ljung")
 Box.test(ihsg.seasonal.residual3, type="Ljung")
-Box.test(ihsg.seasonal.residual4, type="Ljung")
 ```
 
 Berdasarkan hasil Ljung-Box test, terlihat bahwa data telah memenuhi asumsi tidak adanya autokorelasi.
 
-# Overfitting
-
-Akan dicoba untuk melakukan overfitting dari model SARIMA dari model yang seluruh koefisiennya signifikan ARIMA(0,1,1)(0,1,1)7 dan memiliki AIC kecil dibanding model ARIMA non-seasonal yaitu:
-
-- ARIMA(1,1,1)(0,1,1)7
-- ARIMA(0,1,2)(0,1,1)7
-
-```{r error=F, warning=F, message=F}
-ihsg.ovt.model1 <- Arima(ihsg.seasonal, order=c(1,1,1), seasonal=c(0,1,1), method="ML")
-ihsg.ovt.model2 <- Arima(ihsg.seasonal, order=c(0,1,2), seasonal=c(0,1,1), method="ML")
-ihsg.ovt.model1$aic; ihsg.ovt.model2$aic;
-
-coeftest(ihsg.ovt.model1) 
-coeftest(ihsg.ovt.model2)
-
-ihsg.ovt.residual1 <- ihsg.ovt.model1$residuals
-ihsg.ovt.residual2 <- ihsg.ovt.model2$residuals
-```
-
-Dari kedua model overfitting, tidak ada yang seluruh parameternya signifikan. Maka uji diagnostik dan peramalan tidak akan dilakukan
-
 # Peramalan
-Maka akan dilakukan peramalan dengan 3 model berikut yang kemudian akan dibandingkan nilai galat peramalannya:
+Maka akan dilakukan peramalan dengan 2 model berikut yang kemudian akan dibandingkan nilai galat peramalannya:
 
-- ARIMA(0,1,1) karena seluruh koefisiennya signifikan
 - ARIMA(0,1,3) karena memiliki nilai AIC paling kecil diantara model ARIMA lainnya
-- ARIMA(0,1,1)(0,1,1)7 karena seluruh koefisiennya signifikan
 - ARIMA(0,1,3)(0,1,1)7 karena memiliki nilai AIC paling kecil diantara seluruh model yang telah dicobakan
 
 ```{r error=F, warning=F, message=F}
-ihsg.forecast1 <- forecast(Arima(ihsg.train, order=c(0,1,1), method="ML"), 
+
+ihsg.forecast <- forecast(Arima(ihsg.train, order=c(0,1,3), method="ML"), 
                           h=test.prop)
-plot(ihsg.forecast1)
+plot(ihsg.forecast)
 lines(ihsg.test)
-accuracy(ihsg.forecast1$mean, ihsg.test)
 
+plot(ihsg.test, main="Perbandingan antara data testing dan hasil peramalan",
+     ylab="Harga Adjusted Closing IHSG")
+lines(ihsg.forecast$mean, col="blue")
+legend("topleft",c("Actual Data","Forecast"),
+       col=c("black","blue"),lty=1, cex=0.8)
 
-ihsg.forecast2 <- forecast(Arima(ihsg.train, order=c(0,1,3), method="ML"), 
-                          h=test.prop)
-plot(ihsg.forecast2)
-lines(ihsg.test)
-accuracy(ihsg.forecast2$mean, ihsg.test)
+accuracy(ihsg.forecast$mean, ihsg.test)
 
-ihsg.seasonal.forecast3 <- forecast(Arima(seasonal.train, order=c(0,1,1), seasonal=c(0,1,1), method="ML"), 
-                          h=test.prop)
-plot(ihsg.seasonal.forecast3)
+ihsg.seasonal.forecast <- forecast(Arima(seasonal.train, order=c(0,1,3), seasonal=c(0,1,1), method="ML"), h=test.prop)
+plot(ihsg.seasonal.forecast)
 lines(seasonal.test)
-accuracy(ihsg.seasonal.forecast3$mean, seasonal.test)
 
-ihsg.seasonal.forecast4 <- forecast(Arima(seasonal.train, order=c(0,1,3), seasonal=c(0,1,1), method="ML"), 
-                          h=test.prop)
-plot(ihsg.seasonal.forecast4)
-lines(seasonal.test)
-accuracy(ihsg.seasonal.forecast4$mean, seasonal.test)
+plot(seasonal.test, main="Perbandingan antara data testing dan hasil peramalan",
+     ylab="Harga Adjusted Closing IHSG")
+lines(ihsg.seasonal.forecast$mean, col="blue")
+legend("topleft",c("Actual Data","Forecast"),
+       col=c("black","blue"),lty=1, cex=0.8)
+
+accuracy(ihsg.seasonal.forecast$mean, seasonal.test)
 ```
 
 # Kesimpulan
-Berdasarkan seluruh model yang telah kelompok kami coba, baik ARIMA(0,1,1), ARIMA(0,1,3), ARIMA(0,1,3), Seasonal ARIMA dengan ARIMA(0,1,1)(0,1,1)7, dan Seasonal ARIMA dengan ARIMA(0,1,3)(0,1,1)7 didapatkan seluruhnya tidak lolos uji asumsi normalitas pada uji diagnostik (termasuk model yang telah ditransformasi). Maka perlu diambil langkah yang dapat menyelesaikan masalah ketidaknormalan sisaan.
+Berdasarkan seluruh model yang telah kelompok kami coba, baik ARIMA(0,1,1), ARIMA(0,1,3), ARIMA(0,1,4), ARIMA(1,1,4), dan Seasonal ARIMA dengan ARIMA(0,1,3)(0,1,1)7, ARIMA(0,1,4)(0,1,1)7, dan ARIMA(0,1,3)(1,1,4)7 didapatkan seluruhnya tidak lolos uji asumsi normalitas pada uji diagnostik (termasuk model yang telah ditransformasi). Maka perlu diambil langkah yang dapat menyelesaikan masalah ketidaknormalan sisaan.
 
-Berdasarkan nilai RMSE, MAE, dan MAPE dapat dilihat bahwa ARIMA(0,1,3)(0,1,1)7 merupakan model peramalan yang paling baik untuk dataset ini.
+Berdasarkan nilai RMSE, MAE, dan MAPE dapat dilihat bahwa ARIMA(0,1,3)(0,1,1)7 merupakan model peramalan yang paling baik untuk dataset ini dibandingkan dengan model lain yang telah dicobakan.
 
 # Daftar Pustaka
 Aldoko Listiaji Putra, Aminuddin Kasdi, Waspodo Tjipto Subroto. 2019. PENGARUH MEDIA GOOGLE EARTH TERHADAP HASIL BELAJAR BERDASARKAN KEAKTIFAN SISWA KELAS IV TEMA INDAHNYA NEGERIKU DI SEKOLAH DASAR. Jurnal Kajian Pendidikan dan Hasil Penelitian. 5(3): 5.

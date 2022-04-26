@@ -26,6 +26,11 @@ ihsg <- merge(fulldates,data,by="Date",all.x=T)
 ihsg.imputed <- na_interpolation(ihsg, option="spline")
 ggplot_na_imputations(ihsg$JKSE.Adjusted, ihsg.imputed$JKSE.Adjusted)
 
+#extract month and year
+ihsg.imputed$Year <- format(as.Date(ihsg.imputed$Date), "%Y")
+ihsg.imputed$Month <- format(as.Date(ihsg.imputed$Date), "%m")
+View(ihsg.imputed)
+
 #bikin data time series + seasonal ts
 ihsg.ts <- ts(ihsg.imputed$JKSE.Adjusted)
 ihsg.seasonal <- ts(ihsg.imputed$JKSE.Adjusted, frequency=7) #belum tau/yakin
@@ -38,11 +43,6 @@ ihsg.train <- head(ihsg.ts, train.prop)
 ihsg.test <- tail(ihsg.ts, test.prop)
 seasonal.train <- head(ihsg.seasonal, train.prop)
 seasonal.test <- tail(ihsg.seasonal, test.prop)
-
-#plot time series
-plot(ihsg.imputed$JKSE.Adjusted~ihsg.imputed$Date,
-     type = "l", xlab = "Tahun", main = "IHSG Adjusted Closing Price Overtime",
-     ylab = "Harga Adjusted Closing IHSG")
 
 #plot acf pacf
 acf(ihsg.ts, lag.max = 30 ,main = "Plot ACF IHSG Adjusted Closing Price")
@@ -201,6 +201,10 @@ ihsg.forecast <- forecast(Arima(ihsg.train, order=c(0,1,3), method="ML"),
 plot(ihsg.forecast)
 ihsg.forecast$mean
 lines(ihsg.test)
+ihsg.forecast$x
+plot(ihsg.forecast)
+lines(ihsg.test)
+
 accuracy(ihsg.forecast$mean, ihsg.test)
 
 ihsg.seasonal.forecast <- forecast(Arima(seasonal.train, order=c(0,1,3), seasonal=c(0,1,1), method="ML"), 
