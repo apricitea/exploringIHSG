@@ -23,3 +23,11 @@ Time series exploration, smoothing, and forecasting on daily IHSG data, in R.
   since the two forecasting HTML exports here are the only rendered forecasting
   output currently checked in
 - `exploringIHSG.Rproj` — RStudio project file
+
+---
+
+## Data provenance
+
+`IHSG.csv` is daily index history for the Indonesia Composite Index, sourced from Yahoo
+Finance. The data belongs to its provider and is committed only so that the analysis is
+reproducible; no licence is asserted over it. The R analysis is our own work (MIT).
